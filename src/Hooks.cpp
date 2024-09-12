@@ -17,13 +17,13 @@ namespace Hooks
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-        if (util->GetItemCount(player, settings->map) == 0 && !hidden) {
-            logger::debug("start to hide compass");
+        if (util->GetItemCount(player, settings->compass) == 0 && !hidden) {
+            //logger::debug("start to hide compass");
             util->HideCompass();
             hidden = true;
         }
         else {
-            logger::debug("start to show compass");
+            //logger::debug("start to show compass");
             hidden = false;
             util->ShowCompass();
         }

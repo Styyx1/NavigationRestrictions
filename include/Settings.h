@@ -10,6 +10,7 @@ public:
     void LoadForms() noexcept;
 
     inline static bool debug_logging{};
+    inline static std::string restrictionMSG{ "" };
 #define armo RE::TESObjectMISC*
 #define glob RE::TESGlobal*
     armo map;

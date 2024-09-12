@@ -1,4 +1,5 @@
 #pragma once
+#include "Settings.h"
 
 class Utility : public Singleton<Utility>
 {
@@ -32,7 +33,11 @@ public:
             }
         }
         return 0;
-    }    
+    }
+
+    static void PrintMessage(Settings* settings) {
+        RE::DebugNotification(settings->restrictionMSG.c_str());
+    }
 
     bool ShowCompass() 
     {

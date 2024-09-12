@@ -10,6 +10,7 @@ void Settings::LoadSettings() noexcept
     ini.LoadFile(R"(.\Data\SKSE\Plugins\NavigationRestrictions.ini)");
 
     debug_logging = ini.GetBoolValue("Log", "Debug");
+    restrictionMSG = ini.GetValue("Settings", "MessageText", "");
 
     if (debug_logging) {
         spdlog::set_level(spdlog::level::debug);

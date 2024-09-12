@@ -8,11 +8,7 @@ void Listener(SKSE::MessagingInterface::Message* message) noexcept
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
         Hooks::Install();
         auto menuevent = Events::MenuEvent::GetSingleton();
-        menuevent->RegisterMenuEvents();
-        auto crafting = Events::CraftingHandler::GetSingleton();
-        crafting->Register();
-        auto addItemEV = Events::InventoryAddHandler::GetSingleton();
-        addItemEV->Register();
+        menuevent->RegisterMenuEvents();        
         Settings::LoadSettings();
         Settings::GetSingleton()->LoadForms();
     }
