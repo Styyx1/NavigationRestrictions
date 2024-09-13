@@ -5,38 +5,50 @@ class Utility : public Singleton<Utility>
 {
 public:
 
-    /* int GetItemCount(RE::Actor* a_actor, RE::TESBoundObject* item);*/
-    template <int id, typename x_Function>
-    class _generic_foo_;
-
-    template <int id, typename T, typename... Args>
-    class _generic_foo_<id, T(Args...)>
-    {
-    public:
-        static T eval(Args... args)
-        {
-            using func_t = T(Args...);
-            REL::Relocation<func_t> func{ REL::ID(id) };
-            return func(std::forward<Args>(args)...);
+    void LogBool(bool bLog) {
+        if (bLog) {
+            logger::debug("true");
         }
-    };
+        else
+            logger::debug("false");
+    }
 
-    int GetItemCount(RE::Actor* a_actor, RE::TESBoundObject* item)
-    {            
-        auto runtime = REL::Module::GetRuntime();
-        if (auto changes = a_actor->GetInventoryChanges()) {
-            if (runtime == REL::Module::Runtime::SE) {
-                return _generic_foo_<15868, int(RE::InventoryChanges*, RE::TESBoundObject*)>::eval(changes, item);
-            }
-            if (runtime == REL::Module::Runtime::AE) {
-                return _generic_foo_<15642, int(RE::InventoryChanges*, RE::TESBoundObject*)>::eval(changes, item);
-            }
-        }
-        return 0;
+    void LogItemCount(RE::TESObjectMISC* item, int count) {
+        logger::debug("player has {} of {} in the inventory", count, item->GetName());
+    }
+
+    bool HasMap(RE::PlayerCharacter* actor) {
+        Settings* settings = Settings::GetSingleton();
+        bool has_it = false;
+        if (actor->GetItemCount(settings->map) > 0)
+            
+            has_it = true;
+
+        if (actor->GetItemCount(settings->map_damaged) > 0)
+            
+            has_it = true;
+
+        if (actor->GetItemCount(settings->map_indestructible) > 0)
+            
+            has_it = true;
+ 
+        if (actor->GetItemCount(settings->map_destroyed) > 0)
+            has_it = false;
+
+        LogItemCount(settings->map, actor->GetItemCount(settings->map));
+        LogItemCount(settings->map_damaged, actor->GetItemCount(settings->map_damaged));
+        LogItemCount(settings->map_indestructible, actor->GetItemCount(settings->map_indestructible));
+        LogItemCount(settings->map_destroyed, actor->GetItemCount(settings->map_destroyed));
+        LogBool(has_it);
+        return has_it;
     }
 
     static void PrintMessage(Settings* settings) {
         RE::DebugNotification(settings->restrictionMSG.c_str());
+    }
+
+    static void PrintCompass(Settings* settings) {
+        RE::DebugNotification(settings->compassBreakMSG.c_str());
     }
 
     bool ShowCompass() 
@@ -64,6 +76,21 @@ public:
         if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
             uiMovie->SetVariableDouble(a_pathToVar, 100.0);
             visible = uiMovie->GetVariableDouble(a_pathToVar) < 1.0;  // invert visible            
+        }
+        return visible;
+    }
+
+    bool ToggleCompass()
+    {
+        return ToggleHUDElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
+    }
+
+    bool ToggleHUDElement(const char* a_pathToVar)
+    {
+        bool visible = false;
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            visible = uiMovie->GetVariableDouble(a_pathToVar) < 1.0;  // invert visible
+            uiMovie->SetVariableDouble(a_pathToVar, visible ? 100.0 : 0.0);
         }
         return visible;
     }

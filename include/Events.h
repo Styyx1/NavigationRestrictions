@@ -20,7 +20,7 @@ namespace Events
 
         RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* event, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override;
 
-
+        inline static bool initCompass{};
 
         void RegisterMenuEvents()
         {
