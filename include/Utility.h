@@ -80,19 +80,4 @@ public:
         return visible;
     }
 
-    bool ToggleCompass()
-    {
-        return ToggleHUDElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
-    }
-
-    bool ToggleHUDElement(const char* a_pathToVar)
-    {
-        bool visible = false;
-        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
-            visible = uiMovie->GetVariableDouble(a_pathToVar) < 1.0;  // invert visible
-            uiMovie->SetVariableDouble(a_pathToVar, visible ? 100.0 : 0.0);
-        }
-        return visible;
-    }
-
 };

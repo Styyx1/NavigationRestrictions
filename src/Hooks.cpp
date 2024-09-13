@@ -28,8 +28,9 @@ namespace Hooks
             }
             if (player->GetItemCount(settings->compass) == 0 && !hidden) {
                 logger::debug("start to hide compass");
+                hidden = util->ShowCompass();
                 util->HideCompass();
-                hidden = true;
+                //hidden = true;
             }
 
             if (settings->compassDurationDays->value > 0.0) {                
@@ -41,7 +42,7 @@ namespace Hooks
             }
             if (hidden && player->GetItemCount(settings->compass) > 0) {
                 //logger::debug("start to show compass");
-                hidden = false;
+                hidden = util->ShowCompass();
                 settings->storedTime = RE::Calendar::GetSingleton()->gameDay->value;
                 logger::debug("stored game time");
                 util->ShowCompass();
@@ -49,7 +50,7 @@ namespace Hooks
         }
         else if (!hidden) {
             logger::debug("Compass check bypassed, enable compass");
-            hidden = false;
+            hidden = util->ShowCompass();
             util->ShowCompass();
         }      
         return func();

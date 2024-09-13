@@ -74,10 +74,6 @@ namespace Events
             }                       
         }
 
-        /*
-        player->GetItemCount(settings->map) == 0 || player->GetItemCount(settings->map_damaged) == 0 || player->GetItemCount(settings->map_indestructible) == 0 || player->GetItemCount(settings->map_destroyed) > 0
-        */
-
         if (event->menuName == RE::MapMenu::MENU_NAME && event->opening && settings->bypassMapCheck->value == 0.0) {
             bool damaged = false;
              
