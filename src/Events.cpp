@@ -1,5 +1,6 @@
 #include "Events.h"
 #include "Settings.h"
+#include "Hooks.h"
 
 
 namespace Events
@@ -21,8 +22,16 @@ namespace Events
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
         if (event->menuName == RE::RaceSexMenu::MENU_NAME && !event->opening && !initCompass) {
-
-            util->HideCompass();
+            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+            player->AddObjectToContainer(settings->compass, nullptr, 1, nullptr);
+            logger::debug("added compass to the inventory of the player");
+            std::jthread([=] {
+                std::this_thread::sleep_for(2.1s);
+                SKSE::GetTaskInterface()->AddTask([=] {
+                    player->RemoveItem(settings->compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
+                    logger::debug("removed copass again");
+                    });
+                }).detach();            
             initCompass = true;
         }
 

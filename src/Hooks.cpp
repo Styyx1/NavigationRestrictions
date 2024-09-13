@@ -19,6 +19,18 @@ namespace Hooks
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+
+        if (!init) {
+            util->LogBool(init);
+            if (player->GetItemCount(settings->compass) == 0) {
+                util->HideCompass();
+                logger::debug("bool compass is: ");
+                util->LogBool(util->HideCompass());
+                init = true;
+                hidden = true;
+            }
+        }
+
         if (settings->bypassCompassCheck->value == 0.0) {
             if (destroy) {
                 player->RemoveItem(settings->compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
@@ -28,9 +40,9 @@ namespace Hooks
             }
             if (player->GetItemCount(settings->compass) == 0 && !hidden) {
                 logger::debug("start to hide compass");
-                hidden = util->ShowCompass();
+                //hidden = util->ShowCompass();
                 util->HideCompass();
-                //hidden = true;
+                hidden = true;
             }
 
             if (settings->compassDurationDays->value > 0.0) {                
@@ -42,15 +54,15 @@ namespace Hooks
             }
             if (hidden && player->GetItemCount(settings->compass) > 0) {
                 //logger::debug("start to show compass");
-                hidden = util->ShowCompass();
+                hidden = false;
                 settings->storedTime = RE::Calendar::GetSingleton()->gameDay->value;
                 logger::debug("stored game time");
                 util->ShowCompass();
             }
         }
-        else if (!hidden) {
+        else if (hidden) {
             logger::debug("Compass check bypassed, enable compass");
-            hidden = util->ShowCompass();
+            hidden = false;
             util->ShowCompass();
         }      
         return func();

@@ -17,5 +17,6 @@ namespace Hooks
 
         inline static bool hidden;
         inline static bool destroy;
+        inline static bool init;
     };
 } // namespace Hooks
