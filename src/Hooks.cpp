@@ -14,8 +14,7 @@ namespace Hooks
     
 
     i32 MainUpdate::Thunk() noexcept
-    {
-       
+    {       
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();

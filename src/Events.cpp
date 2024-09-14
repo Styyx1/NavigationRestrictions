@@ -24,11 +24,10 @@ namespace Events
 
         if (event->menuName == RE::InventoryMenu::MENU_NAME) {
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            auto i_map = player->GetInventoryCounts();
 
             // remove item logic
             // limits any map item to exactly 1 piece, but only in the inventory menu, i did not figure out how to do that in a container menu yet.
-            if (player->GetItemCount(settings->map_indestructible) <= 0) {                
+            if (player->GetItemCount(settings->map_indestructible) < 1) {                
                 if (player->GetItemCount(settings->map_damaged) > 1) {
                     player->RemoveItem(settings->map_damaged, player->GetItemCount(settings->map_damaged), RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
                     RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
