@@ -80,4 +80,12 @@ public:
         return visible;
     }
 
+    bool GetCompassVisibilityState() {
+        bool visible = false;
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            visible = uiMovie->GetVariableDouble("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha") < 1.0;
+        }
+        return visible;
+    }
+
 };

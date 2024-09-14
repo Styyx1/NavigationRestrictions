@@ -16,28 +16,16 @@ namespace Events
     {
         if (!event)
             return RE::BSEventNotifyControl::kContinue;
-        if (event->menuName != RE::MapMenu::MENU_NAME && event->menuName != RE::InventoryMenu::MENU_NAME && event->menuName != RE::RaceSexMenu::MENU_NAME)
+        if (event->menuName != RE::MapMenu::MENU_NAME && event->menuName != RE::InventoryMenu::MENU_NAME)
             return RE::BSEventNotifyControl::kContinue;        
 
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
-        if (event->menuName == RE::RaceSexMenu::MENU_NAME && !event->opening && !initCompass) {
-            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            player->AddObjectToContainer(settings->compass, nullptr, 1, nullptr);
-            logger::debug("added compass to the inventory of the player");
-            std::jthread([=] {
-                std::this_thread::sleep_for(2.1s);
-                SKSE::GetTaskInterface()->AddTask([=] {
-                    player->RemoveItem(settings->compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
-                    logger::debug("removed copass again");
-                    });
-                }).detach();            
-            initCompass = true;
-        }
-
 
         if (event->menuName == RE::InventoryMenu::MENU_NAME) {
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+            auto i_map = player->GetInventoryCounts();
+
             // remove item logic
             // limits any map item to exactly 1 piece, but only in the inventory menu, i did not figure out how to do that in a container menu yet.
             if (player->GetItemCount(settings->map_indestructible) <= 0) {                
