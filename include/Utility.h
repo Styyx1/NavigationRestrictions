@@ -17,6 +17,18 @@ public:
         logger::debug("player has {} of {} in the inventory", count, item->GetName());
     }
 
+    bool damageCompassByOne(Settings* settings, RE::PlayerCharacter* player, int damageVal) {
+        settings->compassDamage->value = settings->compassDamage->value + damageVal;
+        logger::debug("new damage value = {}", settings->compassDamage->value);
+        if (settings->compassDamage->value >= settings->compassDurability->value * (settings->compassDurationDays->value * 24.0)) {
+            settings->compassDamage->value = 0.0;
+            player->RemoveItem(settings->compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
+            logger::debug("removed compass");
+            return true;
+        }
+        return false;
+    }
+
     bool HasMap(RE::PlayerCharacter* actor) {
         Settings* settings = Settings::GetSingleton();
         bool has_it = false;
@@ -45,11 +57,25 @@ public:
 
     static void PrintMessage(Settings* settings) {
         RE::DebugNotification(settings->restrictionMSG.c_str());
+        return;
     }
 
     static void PrintCompass(Settings* settings) {
-        RE::DebugNotification(settings->compassBreakMSG.c_str());
+        if (settings->showCompassBreak == true) {
+            RE::DebugNotification(settings->compassBreakMSG.c_str());
+        }        
+        return;
     }
+
+    bool CNOShowCompass() {
+
+        return ShowHUDElement("_root.HUDMovieBaseInstance.FocusedMarkerInfo._alpha");
+    }
+    bool CNOHideCompass()
+    {
+        return HideHudElement("_root.HUDMovieBaseInstance.FocusedMarkerInfo._alpha");
+    }
+
 
     bool ShowCompass() 
     {
@@ -76,6 +102,14 @@ public:
         if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
             uiMovie->SetVariableDouble(a_pathToVar, 100.0);
             visible = uiMovie->GetVariableDouble(a_pathToVar) < 1.0;  // invert visible            
+        }
+        return visible;
+    }
+
+    bool GetCNOCompassState() {
+        bool visible = false;
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            visible = uiMovie->GetVariableDouble("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha") < 1.0;
         }
         return visible;
     }

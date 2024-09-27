@@ -12,6 +12,9 @@ void Listener(SKSE::MessagingInterface::Message* message) noexcept
         Settings::LoadSettings();
         Settings::GetSingleton()->LoadForms();
     }
+    if (message->type == SKSE::MessagingInterface::kPostLoadGame) {
+        Settings::GetSingleton()->CheckGlobals();
+    }
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse)

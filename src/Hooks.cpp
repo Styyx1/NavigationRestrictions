@@ -18,10 +18,11 @@ namespace Hooks
         Utility* util = Utility::GetSingleton();
         Settings* settings = Settings::GetSingleton();
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+        RE::Calendar* cal = RE::Calendar::GetSingleton();
+
         if (!RE::UI::GetSingleton()->IsMenuOpen(RE::MainMenu::MENU_NAME)) {
             if (settings->bypassCompassCheck->value == 0.0) {
                 if (destroy) {
-                    player->RemoveItem(settings->compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
                     util->PrintCompass(settings);
                     logger::debug("destroyed compass");
                     destroy = false;
@@ -29,26 +30,33 @@ namespace Hooks
                 if (player->GetItemCount(settings->compass) == 0 && !util->GetCompassVisibilityState()) {
                     logger::debug("start to hide compass");
                     //hidden = util->ShowCompass();
+                    util->CNOHideCompass();
                     util->HideCompass();
                     hidden = true;
                 }
-
-                if (settings->compassDurationDays->value > 0.0) {                
-                    if (RE::Calendar::GetSingleton()->gameDay->value == (settings->storedTime + settings->compassDurationDays->value)) {
-                        settings->storedTime = 0;
-                        logger::debug("time check for destruction");
-                        destroy = true;
+                if (settings->compassDurationDays->value > 0.0 && !hidden) {
+                    if (cal->GetHoursPassed() >= (settings->timeStorage->value + 1.0)) {                        
+                        if (util->damageCompassByOne(settings, player, std::roundf(cal->GetHoursPassed() - settings->timeStorage->value))) {
+                            logger::debug("time check for destruction");
+                            destroy = true;
+                        }
+                        else {
+                            settings->timeStorage->value = cal->GetHoursPassed();
+                            logger::debug("stored new time, it is {}", settings->timeStorage->value);
+                        }
                     }
                 }
                 if (util->GetCompassVisibilityState() && player->GetItemCount(settings->compass) > 0) {
                     //logger::debug("start to show compass");
                     hidden = false;
-                    settings->storedTime = RE::Calendar::GetSingleton()->gameDay->value;
-                    logger::debug("stored game time");
+                    settings->timeStorage->value = cal->GetHoursPassed();
+                    logger::debug("stored game time it is {}", settings->timeStorage->value);
+                    logger::debug("current durability days is: {}", settings->compassDurationDays->value);
+                    util->CNOShowCompass();
                     util->ShowCompass();
                 }
             }
-            else if (util->GetCompassVisibilityState()) {
+            else if (util->GetCompassVisibilityState() || util->GetCNOCompassState()) {
                 logger::debug("Compass check bypassed, enable compass");
                 hidden = false;
                 util->ShowCompass();

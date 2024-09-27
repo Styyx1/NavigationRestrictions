@@ -8,11 +8,13 @@ public:
     
     static void LoadSettings() noexcept;
     void LoadForms() noexcept;
+    void CheckGlobals();
     inline static float storedTime{};
     inline static bool debug_logging{};
     //inline static float compassDestryDays{};
     inline static std::string restrictionMSG{ "" };
     inline static std::string compassBreakMSG{ "" };
+    inline static bool showCompassBreak{};
 #define armo RE::TESObjectMISC*
 #define glob RE::TESGlobal*
     armo map;
@@ -25,5 +27,8 @@ public:
     glob bypassMapCheck;
     glob bypassCompassCheck;
     glob compassDurationDays;
+    glob compassDurability;
+    glob compassDamage;
+    glob timeStorage;
 
 };

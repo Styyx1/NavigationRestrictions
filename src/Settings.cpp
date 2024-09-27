@@ -12,6 +12,7 @@ void Settings::LoadSettings() noexcept
     debug_logging = ini.GetBoolValue("Log", "Debug");
     restrictionMSG = ini.GetValue("Settings", "MessageText", "");
     compassBreakMSG = ini.GetValue("Settings", "CompassBreakMessage", "");
+    showCompassBreak = ini.GetBoolValue("Settings", "bShowCompassNotif");
     //compassDestryDays = static_cast<float>(ini.GetDoubleValue("Settings", "fCompassDestroyDays", 3.00000));
 
     if (debug_logging) {
@@ -50,6 +51,9 @@ void Settings::LoadForms() noexcept
     const int MapBypass = 0x810;
     const int CompassBypass = 0x811;
     const int CompassDurationDays = 0x812;
+    const int CompassDurabilityID = 0x819;
+    const int CompassCurrDamageID = 0x81A;
+    const int TimeStorageID = 0x81B;
 
     auto dataHandler = RE::TESDataHandler::GetSingleton();
 
@@ -73,6 +77,27 @@ void Settings::LoadForms() noexcept
     LogGlobal(bypassCompassCheck);
     compassDurationDays = dataHandler->LookupForm<RE::TESGlobal>(CompassDurationDays, plugin_name);
     LogGlobal(compassDurationDays);
+    compassDurability = dataHandler->LookupForm<RE::TESGlobal>(CompassDurabilityID, plugin_name);
+    LogGlobal(compassDurability);
+    compassDamage = dataHandler->LookupForm<RE::TESGlobal>(CompassCurrDamageID, plugin_name);
+    LogGlobal(compassDamage);
+    timeStorage = dataHandler->LookupForm<RE::TESGlobal>(TimeStorageID, plugin_name);
+    LogGlobal(timeStorage);
+    logger::debug("stored time is: {}", storedTime);
 
+}
 
+void Settings::CheckGlobals() {
+    logger::debug("Checking Globals post load...");
+    logger::debug("-----------------------------------");
+    LogGlobal(durability);
+    LogGlobal(damageValue);
+    LogGlobal(bypassMapCheck);
+    LogGlobal(bypassCompassCheck);
+    LogGlobal(compassDurationDays);
+    LogGlobal(compassDurability);
+    LogGlobal(compassDamage);
+    LogGlobal(timeStorage);
+    logger::debug("stored time is: {}", storedTime);
+    logger::debug("...done checking Globals post load");
 }
