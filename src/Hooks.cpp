@@ -11,8 +11,6 @@ namespace Hooks
         logger::info("");
     }
 
-    
-
     i32 MainUpdate::Thunk() noexcept
     {       
         Utility* util = Utility::GetSingleton();
