@@ -11,6 +11,7 @@ public:
     void CheckGlobals();
     inline static float storedTime{};
     inline static bool debug_logging{};
+    inline static bool enableCompassDamage{};
     //inline static float compassDestryDays{};
     inline static std::string restrictionMSG{ "" };
     inline static std::string compassBreakMSG{ "" };

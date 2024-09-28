@@ -13,6 +13,7 @@ void Settings::LoadSettings() noexcept
     restrictionMSG = ini.GetValue("Settings", "MessageText", "");
     compassBreakMSG = ini.GetValue("Settings", "CompassBreakMessage", "");
     showCompassBreak = ini.GetBoolValue("Settings", "bShowCompassNotif");
+    enableCompassDamage = ini.GetBoolValue("Settings", "bEnableCompassDamage");
     //compassDestryDays = static_cast<float>(ini.GetDoubleValue("Settings", "fCompassDestroyDays", 3.00000));
 
     if (debug_logging) {

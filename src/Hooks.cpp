@@ -22,7 +22,7 @@ namespace Hooks
 
         if (!RE::UI::GetSingleton()->IsMenuOpen(RE::MainMenu::MENU_NAME)) {
             if (settings->bypassCompassCheck->value == 0.0) {
-                if (destroy) {
+                if (destroy && settings->enableCompassDamage) {
                     util->PrintCompass(settings);
                     logger::debug("destroyed compass");
                     destroy = false;
@@ -34,7 +34,7 @@ namespace Hooks
                     util->HideCompass();
                     hidden = true;
                 }
-                if (settings->compassDurationDays->value > 0.0 && !hidden) {
+                if (settings->compassDurationDays->value > 0.0 && !hidden && settings->enableCompassDamage) {
                     if (cal->GetHoursPassed() >= (settings->timeStorage->value + 1.0)) {                        
                         if (util->damageCompassByOne(settings, player, std::roundf(cal->GetHoursPassed() - settings->timeStorage->value))) {
                             logger::debug("time check for destruction");
