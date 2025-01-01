@@ -1,5 +1,11 @@
-build
-*ReSharper*
-.vs
-.idea
-contrib/Plugin*
+# dot folders
+.vs/
+.vscode/
+.xmake/
+
+# folders
+build/
+vs*/
+
+# files
+*.zip
