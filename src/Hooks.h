@@ -7,17 +7,35 @@ namespace Hooks
     class MainUpdate : public Singleton<MainUpdate>
     {
     public:
-        static i32 Thunk() noexcept;
+        static void PlayerUpdate(RE::PlayerCharacter* p, float a_delta);
+        static void Install();
 
-        inline static REL::Relocation<decltype(&Thunk)> func;
-
-        inline static const REL::Relocation target{ RELOCATION_ID(35565, 36564), REL::Relocate(0x748, 0xc26, 0x7ee) };
-
-        inline static const auto address{ target.address() };
+        inline static bool _bCompassAlphaSaved = false;
+        static RE::GFxValue _savedCompassAlpha;
 
         inline static bool hidden;
         inline static bool destroy;
         inline static bool init;
+        inline static bool show_compass_now;
+        inline static bool compass_visible;
+        inline static float passed_time = 0.0f;
+        inline static float compass_damage_val;
+        inline static float compass_durability = 3.0f;
+    private:
+
+        static void PrintCompass();
+        static bool CNOShowCompass();
+        static bool CNOHideCompass();
+        static bool ShowCompass();
+        static bool HideCompass();
+        static bool HideHudElement(const char* a_pathToVar);
+        static bool ShowHUDElement(const char* a_pathToVar);
+        static bool GetCNOCompassState();
+        static bool canDestroyCompass();
+        static bool damageCompass(std::int16_t a_amount);
+        static bool HasCompassItem(RE::PlayerCharacter* player);
+        static bool shouldShowCompass(RE::PlayerCharacter* player);
+        static inline REL::Relocation<decltype(&PlayerUpdate)> func;
     };
     struct MapMenuEx : public RE::MapMenu
     {
@@ -32,6 +50,7 @@ namespace Hooks
         void destroy_map_item(RE::TESObjectMISC* a_map_item, RE::PlayerCharacter* player);
         RE::TESObjectMISC* GetCurrentMapItem(RE::PlayerCharacter* player);
         bool CurrentMapItemIsValid(RE::PlayerCharacter* player);
+        void showRestrictionMessage();
         inline static REL::Relocation<decltype(&RE::MapMenu::ProcessMessage)> func;
     };
     struct ItemAdded : public RE::PlayerCharacter
@@ -41,6 +60,7 @@ namespace Hooks
         static void InstallPickupHook();
         inline static std::unordered_map<RE::TESObjectMISC*, std::int16_t> map_durability_map;
         static void PopulateMap();
+        static void UpdateMap();
     private:
         static void PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound);
         static void OnItemAdded(RE::Actor* a_this, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count, RE::TESObjectREFR* a_fromRefr);
@@ -51,8 +71,24 @@ namespace Hooks
         inline static REL::Relocation<decltype(&OnItemAdded)> _AddObjectToContainer;
         inline static REL::Relocation<decltype(&PickUpObject)> _PickUpObject;
         inline static REL::Relocation<decltype(&OnItemRemoved)> _RemoveItem;
-        
 
+    };
+    struct CompassToggleEx : public RE::HUDMenu
+    {
+
+        static void Install();
+        inline static std::int16_t current_compass_damage;
+        inline static std::int16_t durability_total_compass;
+        inline static bool show_it = false;
+    private:
+        RE::UI_MESSAGE_RESULTS ShowCompass(RE::UIMessage& a_message);
+        bool HasCompass(RE::PlayerCharacter* player);
+        bool shouldShowComass(RE::PlayerCharacter* player);
+        void damageCompass(uint16_t a_damage_amount);
+        void destroyCompass(RE::TESObjectMISC* a_map_item, RE::PlayerCharacter* player);
+        RE::TESObjectMISC* GetCompassItem(RE::PlayerCharacter* player);
+        bool CompassIsValid(RE::PlayerCharacter* player);
+        inline static REL::Relocation<decltype(&RE::HUDMenu::ProcessMessage)> func;
 
     };
 } // namespace Hooks

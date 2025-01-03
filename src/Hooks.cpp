@@ -1,83 +1,33 @@
 #include "Hooks.h"
-#include "Utility.h"
 #include "Settings.h"
 
 namespace Hooks
 {
     void Install() noexcept
     {
-        stl::write_thunk_call<MainUpdate>();
-        logger::info("Installed main update hook");
-        logger::info("");
+        logger::info("{:*^30}", "HOOKS"sv);
+        MainUpdate::Install();
         MapMenuEx::Install();
         ItemAdded::InstallAddItemHook();
         ItemAdded::InstallRemoveItemHook();
         ItemAdded::InstallPickupHook();
     }
 
-    i32 MainUpdate::Thunk() noexcept
-    {       
-        Utility* util = Utility::GetSingleton();
-        Settings* settings = Settings::GetSingleton();
-        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-        RE::Calendar* cal = RE::Calendar::GetSingleton();
-
-        if (!RE::UI::GetSingleton()->IsMenuOpen(RE::MainMenu::MENU_NAME)) {
-            if (settings->bypassCompassCheck->value == 0.0) {
-                if (destroy && settings->enableCompassDamage) {
-                    util->PrintCompass(settings);
-                    logger::debug("destroyed compass");
-                    destroy = false;
-                }
-                if (player->GetItemCount(settings->compass) == 0 && !util->GetCompassVisibilityState()) {
-                    logger::debug("start to hide compass");
-                    util->CNOHideCompass();
-                    util->HideCompass();
-                    hidden = true;
-                }
-                if (settings->compassDurationDays->value > 0.0 && !hidden && settings->enableCompassDamage) {
-                    if (cal->GetHoursPassed() >= (settings->timeStorage->value + 1.0)) {                        
-                        if (util->damageCompassByOne(settings, player, std::roundf(cal->GetHoursPassed() - settings->timeStorage->value))) {
-                            logger::debug("time check for destruction");
-                            destroy = true;
-                        }
-                        else {
-                            settings->timeStorage->value = cal->GetHoursPassed();
-                            logger::debug("stored new time, it is {}", settings->timeStorage->value);
-                        }
-                    }
-                }
-                if (util->GetCompassVisibilityState() && player->GetItemCount(settings->compass) > 0) {
-                    //logger::debug("start to show compass");
-                    hidden = false;
-                    settings->timeStorage->value = cal->GetHoursPassed();
-                    logger::debug("stored game time it is {}", settings->timeStorage->value);
-                    logger::debug("current durability days is: {}", settings->compassDurationDays->value);
-                    util->CNOShowCompass();
-                    util->ShowCompass();
-                }
-            }
-            else if (util->GetCompassVisibilityState() || util->GetCNOCompassState()) {
-                logger::debug("Compass check bypassed, enable compass");
-                hidden = false;
-                util->ShowCompass();
-            }      
-        }        
-        return func();
-    }
     void MapMenuEx::Install()
     {
         REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_MapMenu[0]);
         func = vTable.write_vfunc(0x4, &OpenMap);
         logger::info("installed map open hook");
     }
+
     RE::UI_MESSAGE_RESULTS MapMenuEx::OpenMap(RE::UIMessage& a_message)
     {
-        if (a_message.type == RE::UI_MESSAGE_TYPE::kShow)
+        if (a_message.type == RE::UI_MESSAGE_TYPE::kShow && !Settings::bypass_map_checks)
         {
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
             if (!shouldOpenMap(player)) {
                 logger::info("restrict map hook");
+                showRestrictionMessage();
                 return RE::UI_MESSAGE_RESULTS::kIgnore;
             }
             else {
@@ -85,8 +35,7 @@ namespace Hooks
                 if (curr_map && curr_map != Settings::map_indestructible) {
                     damage_map_item(1);
                     logger::debug("damaged {} remaining durability is {}", curr_map->GetName(), total_durability_value_all_maps - current_map_damage);
-                }
-                
+                }                
             }
         }
         return func(this, a_message);
@@ -161,15 +110,13 @@ namespace Hooks
         return false;
     }
 
+    void MapMenuEx::showRestrictionMessage(){
+        RE::DebugNotification(Settings::restrictionMSG.c_str());
+        return;
+    }
+
     void ItemAdded::LowerDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map)
     {
-        /*
-        //auto result = MapMenuEx::total_durability_value_all_maps;
-        MapMenuEx::total_durability_value_all_maps += a_mapPairs.at(used_map);
-        logger::info("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
-        
-        */
-
         auto result = MapMenuEx::total_durability_value_all_maps;
         MapMenuEx::total_durability_value_all_maps = std::clamp((result -= a_mapPairs.at(used_map)), (std::int16_t)0, MapMenuEx::total_durability_value_all_maps);
     }
@@ -194,11 +141,17 @@ namespace Hooks
 
     void ItemAdded::PopulateMap()
     {
-        ItemAdded::map_durability_map.try_emplace(Settings::map, 20);
-        ItemAdded::map_durability_map.try_emplace(Settings::map_damaged, 10);
+        ItemAdded::map_durability_map.try_emplace(Settings::map, Settings::durability_map_normal);
+        ItemAdded::map_durability_map.try_emplace(Settings::map_damaged, Settings::durability_map_damaged);
         ItemAdded::map_durability_map.try_emplace(Settings::map_destroyed, 0);
 
         logger::info("populated map, entries are: 1 with a value of {} \n 2 with a value of {} and \n 3 with a value of {}", map_durability_map.at(Settings::map), map_durability_map.at(Settings::map_damaged), map_durability_map.at(Settings::map_destroyed));
+    }
+
+    void ItemAdded::UpdateMap()
+    {
+        ItemAdded::map_durability_map.insert_or_assign(Settings::map, Settings::durability_map_normal);
+        ItemAdded::map_durability_map.insert_or_assign(Settings::map_damaged, Settings::durability_map_damaged);
     }
 
     void ItemAdded::PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound)
@@ -207,8 +160,17 @@ namespace Hooks
         {
             _PickUpObject(a_this, a_object, a_count, a_arg3, a_playSound);
             if (a_object->GetBaseObject() == Settings::map || a_object->GetBaseObject() == Settings::map_damaged || a_object->GetBaseObject() == Settings::map_destroyed) {
-                AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
-                logger::info("added durability");
+                if (a_count > 1) {
+                    for (int i = 0; i < a_count; i++) {
+                        AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
+                        logger::info("{}.) added durability", i);
+                    }
+                }
+                else {
+                    AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
+                    logger::info("added durability");
+                }
+                
             }  
             logger::info("item {} picked up", a_object->GetName());
 
@@ -219,9 +181,17 @@ namespace Hooks
     {
         _AddObjectToContainer(a_this, a_object, a_extraList, a_count, a_fromRefr);
         if (a_object == Settings::map->As<RE::TESBoundObject>() || a_object == Settings::map_damaged->As<RE::TESBoundObject>() || a_object == Settings::map_destroyed->As<RE::TESBoundObject>()) {
-            AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
-            logger::info("added durability");
-        }  
+            if (a_count > 1) {
+                for (int i = 0; i < a_count; i++) {
+                    AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
+                    logger::info("{}.) added durability", i);
+                }
+            }
+            else {
+                AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
+                logger::info("added durability");
+            }
+        }
         logger::info("item {} added", a_object->GetName());
         
     }
@@ -230,8 +200,16 @@ namespace Hooks
     {
         
         if (a_item == Settings::map || a_item == Settings::map_damaged || a_item == Settings::map_destroyed) {
-            LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
-            logger::info("lowered durability");
+            if (a_count > 1) {
+                for (int i = 0; i < a_count; i++) {
+                    LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
+                    logger::info("lowered durability");
+                }
+            }
+            else {
+                LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
+                logger::info("lowered durability");
+            }
         }
         logger::info("item {} removed", a_item->GetName());
         return _RemoveItem(a_this, a_item, a_count, a_reason, a_extraList, a_moveToRef, a_dropLoc, a_rotate);
@@ -242,6 +220,200 @@ namespace Hooks
         //auto result = MapMenuEx::total_durability_value_all_maps;
         MapMenuEx::total_durability_value_all_maps += a_mapPairs.at(used_map);
         logger::info("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
+    }
+
+    void CompassToggleEx::Install()
+    {
+        REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_HUDMenu[0]);
+        func = vTable.write_vfunc(0x4, &ShowCompass);
+        logger::info("installed compass hook");
+    }
+
+    RE::UI_MESSAGE_RESULTS CompassToggleEx::ShowCompass(RE::UIMessage& a_message)
+    {
+        if (a_message.type == RE::UI_MESSAGE_TYPE::kShow)
+        {
+            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+            if (!shouldShowComass(player)) {
+                auto& root = CompassToggleEx::GetRuntimeData().root;
+                
+                logger::info("restrict compass hook");
+                return RE::UI_MESSAGE_RESULTS::kIgnore;
+            }           
+        }
+        logger::info("show compass");
+        return func(this, a_message);
+    }
+
+    bool CompassToggleEx::HasCompass(RE::PlayerCharacter* player)
+    {
+        return player->GetItemCount(Settings::compass);
+    }
+
+    bool CompassToggleEx::shouldShowComass(RE::PlayerCharacter* player)
+    {
+        bool show = false;
+        if (HasCompass(player)) {
+            show = true;
+            return show;
+        }
+        if (Settings::bypass_compass_checks) {
+            show = true;
+            return show;
+        }
+        return show;
+    }
+
+    void MainUpdate::PlayerUpdate(RE::PlayerCharacter* p, float a_delta)
+    {
+        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+        RE::Calendar* cal = RE::Calendar::GetSingleton();
+
+        if (!RE::UI::GetSingleton()->IsMenuOpen(RE::MainMenu::MENU_NAME)) 
+        {
+            if (Settings::bypass_compass_checks && !compass_visible) {
+                ShowCompass();
+                logger::debug("bypassed compass check");
+                return func(p, a_delta);
+            }
+
+            if (!Settings::bypass_compass_checks)
+            {                
+                if (canDestroyCompass() && compass_visible) {
+                    PrintCompass();
+                    destroy = false;
+                }
+                if (player->GetItemCount(Settings::compass) == 0 && compass_visible) {
+                    logger::debug("start to hide compass");
+                    HideCompass();
+                    compass_visible = false;
+                    hidden = true;
+                }
+                if (Settings::compass_duration_days > 0.0 && !hidden && Settings::enable_compass_damage) {
+                    if (cal->GetHoursPassed() >= (passed_time + 1.0)) {                        
+                        if (damageCompass(std::roundf(cal->GetHoursPassed() - passed_time))) {
+                            logger::debug("time check for destruction");
+                            destroy = true;
+                        }
+                        else {
+                            passed_time = cal->GetHoursPassed();
+                            destroy = false;
+                            logger::debug("stored new time, it is {}", passed_time);
+                        }
+                    }
+                }
+                if (!compass_visible && shouldShowCompass(player) || !hidden && shouldShowCompass(player) && init) {
+                    //logger::debug("start to show compass");
+                    hidden = false;
+                    passed_time = cal->GetHoursPassed();
+                    destroy = false;
+                    init = false;
+                    logger::debug("stored game time it is {}", passed_time);
+                    logger::debug("current durability days is: {}", Settings::compass_duration_days);
+                    ShowCompass();
+                }
+            }
+        }
+        return func(p, a_delta);
+    }
+
+    void MainUpdate::Install()
+    {
+        REL::Relocation<std::uintptr_t> PlayerVTBL{ RE::VTABLE_PlayerCharacter[0] };
+        func = PlayerVTBL.write_vfunc(0xAD, PlayerUpdate);
+        logger::info("hook:Player Update");
+    }
+
+    void MainUpdate::PrintCompass() {
+        if (Settings::showCompassBreak) {
+            RE::DebugNotification(Settings::compassBreakMSG.c_str());
+        }        
+        return;
+    }
+
+    bool MainUpdate::CNOShowCompass()
+    {
+        return ShowHUDElement("_root.HUDMovieBaseInstance.FocusedMarkerInfo._alpha");
+    }
+
+    bool MainUpdate::CNOHideCompass()
+    {
+        return HideHudElement("_root.HUDMovieBaseInstance.FocusedMarkerInfo._alpha");
+    }
+
+    bool MainUpdate::ShowCompass()
+    {
+        return ShowHUDElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
+    }
+
+    bool MainUpdate::HideCompass()
+    {
+        return HideHudElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
+    }
+
+    bool MainUpdate::HideHudElement(const char* a_pathToVar) {
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            uiMovie->SetVariable(a_pathToVar, 0.0);
+            compass_visible = uiMovie->GetVariableDouble(a_pathToVar);
+            logger::debug("compass visible in hide hud element is {}", compass_visible ? "true" : "false");
+        }
+        return compass_visible;
+    }
+
+    bool MainUpdate::ShowHUDElement(const char* a_pathToVar)
+    {
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            uiMovie->SetVariable(a_pathToVar, 100.0);
+            compass_visible = uiMovie->GetVariableDouble(a_pathToVar);  
+            logger::debug("compass visible in show hud element is {}", compass_visible ? "true" : "false");
+        }
+        return compass_visible;
+    }
+
+    bool MainUpdate::GetCNOCompassState()
+    {
+        bool visible = false;
+        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
+            visible = uiMovie->GetVariableDouble("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha") < 1.0;
+        }
+        return visible;
+    }
+
+    bool MainUpdate::canDestroyCompass()
+    {
+        return destroy && Settings::enable_compass_damage;
+    }
+
+    bool MainUpdate::damageCompass(std::int16_t a_amount)
+    {
+        compass_damage_val += a_amount;
+        logger::debug("new damage value is {}", compass_damage_val);
+        if (compass_damage_val >= (Settings::compass_duration_days * 24.0)) {
+            compass_damage_val = 0.0;
+            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+            if (player->GetItemCount(Settings::compass) > 0) {
+                player->RemoveItem(Settings::compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
+            }            
+            return true;
+        }
+        return false;
+    }
+
+    bool MainUpdate::HasCompassItem(RE::PlayerCharacter* player)
+    {
+        return player->GetItemCount(Settings::compass);
+    }
+
+    bool MainUpdate::shouldShowCompass(RE::PlayerCharacter* player)
+    {
+        show_compass_now = false;
+        if (HasCompassItem(player)) {
+            show_compass_now = true;
+        }
+        if (Settings::bypass_compass_checks) {
+            show_compass_now = true;
+        }
+        return show_compass_now;
     }
 
 } // namespace Hooks
