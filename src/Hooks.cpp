@@ -222,48 +222,6 @@ namespace Hooks
         logger::info("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
     }
 
-    void CompassToggleEx::Install()
-    {
-        REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_HUDMenu[0]);
-        func = vTable.write_vfunc(0x4, &ShowCompass);
-        logger::info("installed compass hook");
-    }
-
-    RE::UI_MESSAGE_RESULTS CompassToggleEx::ShowCompass(RE::UIMessage& a_message)
-    {
-        if (a_message.type == RE::UI_MESSAGE_TYPE::kShow)
-        {
-            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            if (!shouldShowComass(player)) {
-                auto& root = CompassToggleEx::GetRuntimeData().root;
-                
-                logger::info("restrict compass hook");
-                return RE::UI_MESSAGE_RESULTS::kIgnore;
-            }           
-        }
-        logger::info("show compass");
-        return func(this, a_message);
-    }
-
-    bool CompassToggleEx::HasCompass(RE::PlayerCharacter* player)
-    {
-        return player->GetItemCount(Settings::compass);
-    }
-
-    bool CompassToggleEx::shouldShowComass(RE::PlayerCharacter* player)
-    {
-        bool show = false;
-        if (HasCompass(player)) {
-            show = true;
-            return show;
-        }
-        if (Settings::bypass_compass_checks) {
-            show = true;
-            return show;
-        }
-        return show;
-    }
-
     void MainUpdate::PlayerUpdate(RE::PlayerCharacter* p, float a_delta)
     {
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();

@@ -73,22 +73,4 @@ namespace Hooks
         inline static REL::Relocation<decltype(&OnItemRemoved)> _RemoveItem;
 
     };
-    struct CompassToggleEx : public RE::HUDMenu
-    {
-
-        static void Install();
-        inline static std::int16_t current_compass_damage;
-        inline static std::int16_t durability_total_compass;
-        inline static bool show_it = false;
-    private:
-        RE::UI_MESSAGE_RESULTS ShowCompass(RE::UIMessage& a_message);
-        bool HasCompass(RE::PlayerCharacter* player);
-        bool shouldShowComass(RE::PlayerCharacter* player);
-        void damageCompass(uint16_t a_damage_amount);
-        void destroyCompass(RE::TESObjectMISC* a_map_item, RE::PlayerCharacter* player);
-        RE::TESObjectMISC* GetCompassItem(RE::PlayerCharacter* player);
-        bool CompassIsValid(RE::PlayerCharacter* player);
-        inline static REL::Relocation<decltype(&RE::HUDMenu::ProcessMessage)> func;
-
-    };
 } // namespace Hooks
