@@ -29,5 +29,6 @@ public:
     inline static armo map_indestructible;
     inline static armo map_destroyed;
     inline static armo compass;
+    inline static armo compass_indestructible;
 
 };

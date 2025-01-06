@@ -51,6 +51,7 @@ void Settings::LoadForms() noexcept
     const int MapIndestructibleID = 0x803;
     const int MapDestroyedID = 0x802;
     const int CompassID = 0x804;
+    const int CompassIndestructibleID = 0x81C;
 
     auto dataHandler = RE::TESDataHandler::GetSingleton();
 
@@ -64,4 +65,6 @@ void Settings::LoadForms() noexcept
     PrintMap(map_destroyed);
     compass = dataHandler->LookupForm<RE::TESObjectMISC>(CompassID, plugin_name);
     PrintMap(compass);
+    compass_indestructible = dataHandler->LookupForm<RE::TESObjectMISC>(CompassIndestructibleID, plugin_name);
+    PrintMap(compass_indestructible);
 }

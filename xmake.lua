@@ -6,7 +6,7 @@ includes("lib/commonlibsse-ng")
 
 -- set project
 set_project("NavigationRestrictions")
-set_version("0.0.0")
+set_version("2.0.0")
 set_license("GPL-3.0")
 
 -- set defaults

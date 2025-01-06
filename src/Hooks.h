@@ -35,6 +35,7 @@ namespace Hooks
         static bool damageCompass(std::int16_t a_amount);
         static bool HasCompassItem(RE::PlayerCharacter* player);
         static bool shouldShowCompass(RE::PlayerCharacter* player);
+        static bool hasIndestructibleCompass(RE::PlayerCharacter* player);
         static inline REL::Relocation<decltype(&PlayerUpdate)> func;
     };
     struct MapMenuEx : public RE::MapMenu
@@ -51,6 +52,7 @@ namespace Hooks
         RE::TESObjectMISC* GetCurrentMapItem(RE::PlayerCharacter* player);
         bool CurrentMapItemIsValid(RE::PlayerCharacter* player);
         void showRestrictionMessage();
+        bool hasIndestructibleMap(RE::PlayerCharacter* player);
         inline static REL::Relocation<decltype(&RE::MapMenu::ProcessMessage)> func;
     };
     struct ItemAdded : public RE::PlayerCharacter
@@ -67,6 +69,7 @@ namespace Hooks
         static RE::ObjectRefHandle OnItemRemoved(RE::Actor* a_this, RE::TESBoundObject* a_item, std::int32_t a_count, RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extraList, RE::TESObjectREFR* a_moveToRef, const RE::NiPoint3* a_dropLoc, const RE::NiPoint3* a_rotate);
         static void AddDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map);
         static void LowerDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map);
+        
         //void ChangeDurabilty(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map);
         inline static REL::Relocation<decltype(&OnItemAdded)> _AddObjectToContainer;
         inline static REL::Relocation<decltype(&PickUpObject)> _PickUpObject;

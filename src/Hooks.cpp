@@ -26,13 +26,13 @@ namespace Hooks
         {
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
             if (!shouldOpenMap(player)) {
-                logger::info("restrict map hook");
+                logger::debug("restrict map hook");
                 showRestrictionMessage();
                 return RE::UI_MESSAGE_RESULTS::kIgnore;
             }
             else {
                 auto curr_map = GetCurrentMapItem(player);
-                if (curr_map && curr_map != Settings::map_indestructible) {
+                if (curr_map; curr_map != Settings::map_indestructible || !hasIndestructibleMap(player)) {
                     damage_map_item(1);
                     logger::debug("damaged {} remaining durability is {}", curr_map->GetName(), total_durability_value_all_maps - current_map_damage);
                 }                
@@ -43,13 +43,13 @@ namespace Hooks
 
     bool MapMenuEx::hasAtLeastOneMapItem(RE::PlayerCharacter* player)
     {
-        logger::info("has at least one map item {}", player->GetItemCount(Settings::map) || player->GetItemCount(Settings::map_damaged) || player->GetItemCount(Settings::map_indestructible) ? "true" : "false");
-        return player->GetItemCount(Settings::map) || player->GetItemCount(Settings::map_damaged) || player->GetItemCount(Settings::map_indestructible);
+        logger::debug("has at least one map item {}", player->GetItemCount(Settings::map) || player->GetItemCount(Settings::map_damaged) || hasIndestructibleMap(player) ? "true" : "false");
+        return player->GetItemCount(Settings::map) || player->GetItemCount(Settings::map_damaged) || hasIndestructibleMap(player);
     }
 
     bool MapMenuEx::shouldOpenMap(RE::PlayerCharacter* player)
     {
-        logger::info("should open map is {}", hasAtLeastOneMapItem(player) || Settings::bypass_map_checks != 0 ? "true" : "false");
+        logger::debug("should open map is {}", hasAtLeastOneMapItem(player) || Settings::bypass_map_checks != 0 ? "true" : "false");
         return hasAtLeastOneMapItem(player) || Settings::bypass_map_checks;
     }
 
@@ -57,11 +57,11 @@ namespace Hooks
     {
         RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
         auto map = GetCurrentMapItem(player);
-        logger::info("current map damage value is {}", current_map_damage);
+        logger::debug("current map damage value is {}", current_map_damage);
         if (map && current_map_damage >= total_durability_value_all_maps || current_map_damage >= ItemAdded::map_durability_map.at(map)) {            
             destroy_map_item(map, player);
             current_map_damage = 0;
-            logger::info("reset current map damage");
+            logger::debug("reset current map damage");
             return;
         }
         current_map_damage = std::clamp(current_map_damage += a_damage_amount, (std::int16_t)0, total_durability_value_all_maps);
@@ -76,14 +76,14 @@ namespace Hooks
             player->AddObjectToContainer(Settings::map_damaged, nullptr, 1, nullptr);
             //total_durability_value_all_maps += ItemAdded::map_durability_map.at(Settings::map_damaged);
             total_durability_value_all_maps = std::clamp(total_durability_value_all_maps -= ItemAdded::map_durability_map.at(a_map_item), (std::int16_t)0, ItemAdded::map_durability_map.at(a_map_item));
-            logger::info("new durability is {}", total_durability_value_all_maps);
+            logger::debug("new durability is {}", total_durability_value_all_maps);
             return;
         }
         if (a_map_item == Settings::map_damaged) {
             player->AddObjectToContainer(Settings::map_destroyed, nullptr, 1, nullptr);
             //total_durability_value_all_maps += ItemAdded::map_durability_map.at(Settings::map_destroyed);
             total_durability_value_all_maps = std::clamp((total_durability_value_all_maps -= ItemAdded::map_durability_map.at(a_map_item)), (std::int16_t)0, ItemAdded::map_durability_map.at(a_map_item));
-            logger::info("new durability is {}", total_durability_value_all_maps);
+            logger::debug("new durability is {}", total_durability_value_all_maps);
             return;
         }
     }
@@ -121,6 +121,21 @@ namespace Hooks
         MapMenuEx::total_durability_value_all_maps = std::clamp((result -= a_mapPairs.at(used_map)), (std::int16_t)0, MapMenuEx::total_durability_value_all_maps);
     }
 
+    bool MapMenuEx::hasIndestructibleMap(RE::PlayerCharacter* player)
+    {
+        bool result = false;
+        if (player->GetItemCount(Settings::map_indestructible) > 0) {
+            result = true;
+        }
+        auto inv = player->GetInventory();
+        for (auto& item : player->GetInventory()) {
+            if (item.first->HasKeywordByEditorID("MapIndestructible")) {
+                result = true;
+            }
+        }
+        return result;
+    }
+
     void ItemAdded::InstallAddItemHook()
     {
         REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
@@ -145,7 +160,7 @@ namespace Hooks
         ItemAdded::map_durability_map.try_emplace(Settings::map_damaged, Settings::durability_map_damaged);
         ItemAdded::map_durability_map.try_emplace(Settings::map_destroyed, 0);
 
-        logger::info("populated map, entries are: 1 with a value of {} \n 2 with a value of {} and \n 3 with a value of {}", map_durability_map.at(Settings::map), map_durability_map.at(Settings::map_damaged), map_durability_map.at(Settings::map_destroyed));
+        logger::debug("populated map, entries are: 1 with a value of {} \n 2 with a value of {} and \n 3 with a value of {}", map_durability_map.at(Settings::map), map_durability_map.at(Settings::map_damaged), map_durability_map.at(Settings::map_destroyed));
     }
 
     void ItemAdded::UpdateMap()
@@ -163,16 +178,16 @@ namespace Hooks
                 if (a_count > 1) {
                     for (int i = 0; i < a_count; i++) {
                         AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
-                        logger::info("{}.) added durability", i);
+                        logger::debug("{}.) added durability", i);
                     }
                 }
                 else {
                     AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
-                    logger::info("added durability");
+                    logger::debug("added durability");
                 }
                 
             }  
-            logger::info("item {} picked up", a_object->GetName());
+            logger::debug("item {} picked up", a_object->GetName());
 
         }
     }
@@ -184,15 +199,15 @@ namespace Hooks
             if (a_count > 1) {
                 for (int i = 0; i < a_count; i++) {
                     AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
-                    logger::info("{}.) added durability", i);
+                    logger::debug("{}.) added durability", i);
                 }
             }
             else {
                 AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
-                logger::info("added durability");
+                logger::debug("added durability");
             }
         }
-        logger::info("item {} added", a_object->GetName());
+        logger::debug("item {} added", a_object->GetName());
         
     }
 
@@ -203,15 +218,15 @@ namespace Hooks
             if (a_count > 1) {
                 for (int i = 0; i < a_count; i++) {
                     LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
-                    logger::info("lowered durability");
+                    logger::debug("lowered durability");
                 }
             }
             else {
                 LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
-                logger::info("lowered durability");
+                logger::debug("lowered durability");
             }
         }
-        logger::info("item {} removed", a_item->GetName());
+        logger::debug("item {} removed", a_item->GetName());
         return _RemoveItem(a_this, a_item, a_count, a_reason, a_extraList, a_moveToRef, a_dropLoc, a_rotate);
     }
 
@@ -219,7 +234,7 @@ namespace Hooks
     {
         //auto result = MapMenuEx::total_durability_value_all_maps;
         MapMenuEx::total_durability_value_all_maps += a_mapPairs.at(used_map);
-        logger::info("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
+        logger::debug("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
     }
 
     void MainUpdate::PlayerUpdate(RE::PlayerCharacter* p, float a_delta)
@@ -247,7 +262,7 @@ namespace Hooks
                     compass_visible = false;
                     hidden = true;
                 }
-                if (Settings::compass_duration_days > 0.0 && !hidden && Settings::enable_compass_damage) {
+                if (Settings::compass_duration_days > 0.0 && !hidden && Settings::enable_compass_damage && !hasIndestructibleCompass(player)) {
                     if (cal->GetHoursPassed() >= (passed_time + 1.0)) {                        
                         if (damageCompass(std::roundf(cal->GetHoursPassed() - passed_time))) {
                             logger::debug("time check for destruction");
@@ -260,6 +275,7 @@ namespace Hooks
                         }
                     }
                 }
+                
                 if (!compass_visible && shouldShowCompass(player) || !hidden && shouldShowCompass(player) && init) {
                     //logger::debug("start to show compass");
                     hidden = false;
@@ -270,6 +286,12 @@ namespace Hooks
                     logger::debug("current durability days is: {}", Settings::compass_duration_days);
                     ShowCompass();
                 }
+                if (init && hidden && !shouldShowCompass(player) || init && !compass_visible && !shouldShowCompass(player)) {
+                    HideCompass();
+                    init = false;
+                    logger::debug("hide compass on init");
+                }
+               
             }
         }
         return func(p, a_delta);
@@ -371,7 +393,27 @@ namespace Hooks
         if (Settings::bypass_compass_checks) {
             show_compass_now = true;
         }
+        for (auto& item : player->GetInventory()) {
+            if (item.first->HasKeywordByEditorID("CompassIndestructible")) {
+                show_compass_now = true;
+            }
+        }
         return show_compass_now;
+    }
+
+    bool MainUpdate::hasIndestructibleCompass(RE::PlayerCharacter* player)
+    {
+        bool result = false;
+        if (player->GetItemCount(Settings::compass_indestructible) > 0) {
+            result = true;
+        }
+        auto inv = player->GetInventory();
+        for (auto& item : player->GetInventory()) {
+            if (item.first->HasKeywordByEditorID("CompassIndestructible")) {
+                result = true;
+            }
+        }
+        return false;
     }
 
 } // namespace Hooks
