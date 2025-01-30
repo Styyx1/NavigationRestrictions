@@ -9,6 +9,7 @@ namespace Hooks
     public:
         static void PlayerUpdate(RE::PlayerCharacter* p, float a_delta);
         static void Install();
+        static bool useSkillsOfTheWild();
 
         inline static bool _bCompassAlphaSaved = false;
         static RE::GFxValue _savedCompassAlpha;
