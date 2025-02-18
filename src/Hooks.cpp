@@ -256,7 +256,7 @@ namespace Hooks
                     PrintCompass();
                     destroy = false;
                 }
-                if (player->GetItemCount(Settings::compass) == 0 && compass_visible) {
+                if (!shouldShowCompass(player)  && compass_visible) {
                     logger::debug("start to hide compass");
                     HideCompass();
                     compass_visible = false;
@@ -302,6 +302,20 @@ namespace Hooks
         REL::Relocation<std::uintptr_t> PlayerVTBL{ RE::VTABLE_PlayerCharacter[0] };
         func = PlayerVTBL.write_vfunc(0xAD, PlayerUpdate);
         logger::info("hook:Player Update");
+    }
+
+    bool MainUpdate::useSkillsOfTheWild()
+    {
+        bool sotw_show_comp = true;
+        if (Settings::skills_of_the_wild_active) {
+            if (Settings::skills_of_the_wild_perk->value == 1.0f || Settings::sotw_cheat_global->value == 1.0f) {
+                sotw_show_comp = true;
+            }
+            else {
+                sotw_show_comp = false;
+            }
+        }
+        return sotw_show_comp;
     }
 
     void MainUpdate::PrintCompass() {
@@ -388,14 +402,18 @@ namespace Hooks
     {
         show_compass_now = false;
         if (HasCompassItem(player)) {
-            show_compass_now = true;
+            if (useSkillsOfTheWild()) {
+                show_compass_now = true;
+            }   
         }
         if (Settings::bypass_compass_checks) {
             show_compass_now = true;
         }
         for (auto& item : player->GetInventory()) {
             if (item.first->HasKeywordByEditorID("CompassIndestructible")) {
-                show_compass_now = true;
+                if (useSkillsOfTheWild()) {
+                    show_compass_now = true;
+                }                
             }
         }
         return show_compass_now;

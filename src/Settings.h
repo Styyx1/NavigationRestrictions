@@ -9,6 +9,7 @@ public:
     void LoadSettings();
     void LoadForms() noexcept;
     void UpdateSettings(CSimpleIniA &ini, std::filesystem::path path);
+    bool isSkillOfTheWildActive();
     inline static float storedTime{};
     inline static bool debug_logging{};
     inline static bool enableCompassDamage{};
@@ -22,6 +23,8 @@ public:
     inline static bool enable_compass_damage{ true };
     inline static float compass_duration_days{3.0f};
     inline static uint16_t map_durability_total{ 50 };
+    inline static bool skills_of_the_wild_active;
+    inline static const char* sotw_mod{ "SkillsOfTheWild.esp" };
 #define armo RE::TESObjectMISC*
 #define glob RE::TESGlobal*
     inline static armo map;
@@ -30,5 +33,7 @@ public:
     inline static armo map_destroyed;
     inline static armo compass;
     inline static armo compass_indestructible;
+    inline static glob skills_of_the_wild_perk;
+    inline static glob sotw_cheat_global;
 
 };

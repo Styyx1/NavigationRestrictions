@@ -38,6 +38,18 @@ void Settings::UpdateSettings(CSimpleIniA &ini , std::filesystem::path path)
     logger::info("");
 }
 
+bool Settings::isSkillOfTheWildActive()
+{
+    auto dh = RE::TESDataHandler::GetSingleton();
+
+    if (auto file = dh->LookupModByName(sotw_mod); file && file->compileIndex != 0xFF) {
+        logger::info("Skills of the wild is active");
+        skills_of_the_wild_active = true;
+    }
+
+    return skills_of_the_wild_active;
+}
+
 inline static void PrintMap(RE::TESObjectMISC* item)
 {
     logger::debug("lookup successful, item name is {}", item->GetName());
@@ -52,6 +64,8 @@ void Settings::LoadForms() noexcept
     const int MapDestroyedID = 0x802;
     const int CompassID = 0x804;
     const int CompassIndestructibleID = 0x81C;
+    const int sotw_compass_global_cheat_id = 0x863;
+    const int sotw_compass_global_non_cheat_id = 0x958;
 
     auto dataHandler = RE::TESDataHandler::GetSingleton();
 
@@ -67,4 +81,10 @@ void Settings::LoadForms() noexcept
     PrintMap(compass);
     compass_indestructible = dataHandler->LookupForm<RE::TESObjectMISC>(CompassIndestructibleID, plugin_name);
     PrintMap(compass_indestructible);
+
+    if (isSkillOfTheWildActive()) {
+        skills_of_the_wild_perk = dataHandler->LookupForm(sotw_compass_global_non_cheat_id, sotw_mod)->As<RE::TESGlobal>();
+        sotw_cheat_global = dataHandler->LookupForm(sotw_compass_global_cheat_id, sotw_mod)->As<RE::TESGlobal>();
+    }
+
 }
