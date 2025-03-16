@@ -169,6 +169,18 @@ namespace Hooks
         ItemAdded::map_durability_map.insert_or_assign(Settings::map_damaged, Settings::durability_map_damaged);
     }
 
+    bool ItemAdded::IsCompassItem(RE::TESBoundObject* a_object)
+    {
+        bool result = false;
+        if (a_object == Settings::compass) {
+            result = true;
+        }
+        if (a_object->HasKeywordByEditorID("CompassIndestructible")) {
+            result = true;
+        }
+        return result;
+    }
+
     void ItemAdded::PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound)
     {
 
@@ -186,7 +198,10 @@ namespace Hooks
                     logger::debug("added durability");
                 }
                 
-            }  
+            }
+            if (IsCompassItem(a_object->GetBaseObject())) {
+                MainUpdate::show_compass_now = true;
+            }
             logger::debug("item {} picked up", a_object->GetName());
 
         }
@@ -207,6 +222,9 @@ namespace Hooks
                 logger::debug("added durability");
             }
         }
+        if (IsCompassItem(a_object)) {
+            MainUpdate::show_compass_now = true;
+        }
         logger::debug("item {} added", a_object->GetName());
         
     }
@@ -226,8 +244,22 @@ namespace Hooks
                 logger::debug("lowered durability");
             }
         }
+        auto result = _RemoveItem(a_this, a_item, a_count, a_reason, a_extraList, a_moveToRef, a_dropLoc, a_rotate);
+        auto player = RE::PlayerCharacter::GetSingleton();
+        if (IsCompassItem(a_item)) {            
+            if (a_this == player) {
+                if (player->GetItemCount(Settings::compass) <= 0) {
+                    MainUpdate::show_compass_now = false;
+                }
+                if (!MainUpdate::shouldShowCompass(player)) {
+                    MainUpdate::show_compass_now = false;
+                }
+            }
+        }
         logger::debug("item {} removed", a_item->GetName());
-        return _RemoveItem(a_this, a_item, a_count, a_reason, a_extraList, a_moveToRef, a_dropLoc, a_rotate);
+        
+        
+        return result;
     }
 
     void ItemAdded::AddDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map)
@@ -256,14 +288,14 @@ namespace Hooks
                     PrintCompass();
                     destroy = false;
                 }
-                if (!shouldShowCompass(player)  && compass_visible) {
+                if (!show_compass_now  && compass_visible) {
                     logger::debug("start to hide compass");
                     HideCompass();
                     compass_visible = false;
                     hidden = true;
                 }
-                if (Settings::compass_duration_days > 0.0 && !hidden && Settings::enable_compass_damage && !hasIndestructibleCompass(player)) {
-                    if (cal->GetHoursPassed() >= (passed_time + 1.0)) {                        
+                if (Settings::compass_duration_days > 0.0 && !hidden && Settings::enable_compass_damage) {
+                    if (cal->GetHoursPassed() >= (passed_time + 1.0)) {
                         if (damageCompass(std::roundf(cal->GetHoursPassed() - passed_time))) {
                             logger::debug("time check for destruction");
                             destroy = true;
@@ -276,7 +308,7 @@ namespace Hooks
                     }
                 }
                 
-                if (!compass_visible && shouldShowCompass(player) || !hidden && shouldShowCompass(player) && init) {
+                if (!compass_visible && show_compass_now || !hidden && show_compass_now && init) {
                     //logger::debug("start to show compass");
                     hidden = false;
                     passed_time = cal->GetHoursPassed();
@@ -286,12 +318,11 @@ namespace Hooks
                     logger::debug("current durability days is: {}", Settings::compass_duration_days);
                     ShowCompass();
                 }
-                if (init && hidden && !shouldShowCompass(player) || init && !compass_visible && !shouldShowCompass(player)) {
+                if (init && hidden && !show_compass_now || init && !compass_visible && !show_compass_now) {
                     HideCompass();
                     init = false;
                     logger::debug("hide compass on init");
-                }
-               
+                }               
             }
         }
         return func(p, a_delta);
@@ -308,12 +339,15 @@ namespace Hooks
     {
         bool sotw_show_comp = true;
         if (Settings::skills_of_the_wild_active) {
-            if (Settings::skills_of_the_wild_perk->value == 1.0f || Settings::sotw_cheat_global->value == 1.0f) {
-                sotw_show_comp = true;
+            if (Settings::skills_of_the_wild_perk != nullptr && Settings::skills_of_the_wild_perk->FORMTYPE == RE::FormType::Global) {
+                if (Settings::skills_of_the_wild_perk->value != 0.0f || Settings::sotw_cheat_global->value != 0.0f) {
+                    sotw_show_comp = true;
+                }
+                else {
+                    sotw_show_comp = false;
+                }
             }
-            else {
-                sotw_show_comp = false;
-            }
+            
         }
         return sotw_show_comp;
     }
