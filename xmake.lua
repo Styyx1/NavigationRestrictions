@@ -22,17 +22,18 @@ add_rules("mode.debug", "mode.releasedbg")
 add_rules("plugin.vsxmake.autoupdate")
 set_defaultmode("releasedbg")
 set_config("skse_xbyak", true)
+set_config("rex_ini", true)
 
 -- packages
 add_requires("simpleini", "xbyak")
 add_requires("spdlog", { configs = { header_only = false } })
--- add_requires("glaze", {configs = { header_only = true}})
 
 -- targets
 target("NavigationRestrictions")
     -- add dependencies to target
     add_deps("commonlibsse-ng")
     add_packages("fmt", "spdlog", "simpleini", "xbyak")
+    add_options("rex_ini")
 
     -- add commonlibsse-ng plugin
     add_rules("commonlibsse-ng.plugin", {

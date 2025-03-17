@@ -26,8 +26,7 @@ namespace Papyrus
 
 		void UpdateNRSettings(VM*, StackID, RE::StaticFunctionTag*)
 		{
-			Settings* settings = Settings::GetSingleton();
-			settings->LoadSettings();
+			Setting::Values::Update();
 			Hooks::ItemAdded::UpdateMap();
 			logger::debug("called papyrus function");
 		}
