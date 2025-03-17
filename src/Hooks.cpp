@@ -268,16 +268,11 @@ namespace Hooks
             }
 
             CompVisUpdate();
-            
-            if (canDestroyCompass() && compass_visible && destroy) {
-                PrintCompass();
-                destroy = false;
-            }
 
             if (Setting::Values::compass_duration_days.GetValue() > 0.0 && compass_visible && Setting::Values::enable_compass_damage.GetValue()) {
                 if (cal->GetHoursPassed() >= (passed_time + 1.0)) {
                     if (damageCompass(std::roundf(cal->GetHoursPassed() - passed_time))) {
-                        destroy = true;
+                        
                     }
                     else {
                         passed_time = cal->GetHoursPassed();
@@ -376,20 +371,17 @@ namespace Hooks
         return compass_visible;
     }
 
-    bool MainUpdate::canDestroyCompass()
-    {
-        return destroy && Setting::Values::enable_compass_damage.GetValue();
-    }
-
     bool MainUpdate::damageCompass(std::int16_t a_amount)
     {
         compass_damage_val += a_amount;
         logger::debug("new damage value is {}", compass_damage_val);
         if (compass_damage_val >= (Setting::Values::compass_duration_days.GetValue() * 24.0)) {
+            destroy = true;
             compass_damage_val = 0.0;
             RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
             if (player->GetItemCount(Setting::Forms::compass) > 0) {
                 player->RemoveItem(Setting::Forms::compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
+                PrintCompass();
                 if (!shouldShowCompass(player)) {
                     show_compass_now = false;
                 }
@@ -401,7 +393,11 @@ namespace Hooks
 
     bool MainUpdate::HasCompassItem(RE::PlayerCharacter* player)
     {
-        return player->GetItemCount(Setting::Forms::compass);
+        i32 count = player->GetItemCount(Setting::Forms::compass);
+        if (count <= 0) {
+            compass_damage_val = 0;
+        }
+        return count;
     }
 
     bool MainUpdate::shouldShowCompass(RE::PlayerCharacter* player)
@@ -418,6 +414,7 @@ namespace Hooks
         }
         for (auto& item : player->GetInventory()) {
             if (item.first->HasKeywordByEditorID("CompassIndestructible")) {
+                destroy = false;
                 if (useSkillsOfTheWild()) {
                     show_compass_now = true;
                 }                

@@ -30,7 +30,6 @@ namespace Hooks
         static bool HideCompass();
         static bool HideHudElement(const char* a_pathToVar);
         static bool ShowHUDElement(const char* a_pathToVar);
-        static bool canDestroyCompass();
         static bool damageCompass(std::int16_t a_amount);
         static bool HasCompassItem(RE::PlayerCharacter* player);
         static inline REL::Relocation<decltype(&PlayerUpdate)> func;
