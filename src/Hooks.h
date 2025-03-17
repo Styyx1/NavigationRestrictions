@@ -10,7 +10,7 @@ namespace Hooks
         static void PlayerUpdate(RE::PlayerCharacter* p, float a_delta);
         static void Install();
         static bool useSkillsOfTheWild();
-
+        static bool shouldShowCompass(RE::PlayerCharacter* player);
         inline static bool _bCompassAlphaSaved = false;
         static RE::GFxValue _savedCompassAlpha;
 
@@ -35,7 +35,6 @@ namespace Hooks
         static bool canDestroyCompass();
         static bool damageCompass(std::int16_t a_amount);
         static bool HasCompassItem(RE::PlayerCharacter* player);
-        static bool shouldShowCompass(RE::PlayerCharacter* player);
         static bool hasIndestructibleCompass(RE::PlayerCharacter* player);
         static inline REL::Relocation<decltype(&PlayerUpdate)> func;
     };
@@ -64,6 +63,7 @@ namespace Hooks
         inline static std::unordered_map<RE::TESObjectMISC*, std::int16_t> map_durability_map;
         static void PopulateMap();
         static void UpdateMap();
+        static bool IsCompassItem(RE::TESBoundObject* a_object);
     private:
         static void PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound);
         static void OnItemAdded(RE::Actor* a_this, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count, RE::TESObjectREFR* a_fromRefr);

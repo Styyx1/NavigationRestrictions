@@ -16,6 +16,7 @@ void Listener(SKSE::MessagingInterface::Message* message) noexcept
     }
     if (message->type == SKSE::MessagingInterface::kPostLoadGame) {
         Hooks::MainUpdate::init = true;
+        Hooks::MainUpdate::shouldShowCompass(RE::PlayerCharacter::GetSingleton());
     }
 }
 
