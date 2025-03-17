@@ -21,7 +21,6 @@ namespace Serialisation
 			auto compassDamageVal = Hooks::MainUpdate::compass_damage_val;
 			auto shouldDestroyComp = Hooks::MainUpdate::destroy;
 			auto storedTime = Hooks::MainUpdate::passed_time;
-			auto isHidden = Hooks::MainUpdate::hidden;
 			if (!a_skse->WriteRecordData(mapDamageCurr)) {
 				logger::error("Failed to write size of record data");
 				return;
@@ -47,11 +46,6 @@ namespace Serialisation
 				return;
 			}
 
-			if (!a_skse->WriteRecordData(isHidden)) {
-				logger::error("Failed to write size of record data");
-				return;
-			}
-
 			if (!a_skse->WriteRecordData(storedTime)) {
 				logger::error("Failed to write size of record data");
 				return;
@@ -63,7 +57,6 @@ namespace Serialisation
 				logger::info("Serialized compass visibility state: {}", compassVisibility ? "true" : "false");
 				logger::info("Serialized compass should destroy: {}", shouldDestroyComp ? "true" : "false");
 				logger::info("Serialized compass damage: {}", compassDamageVal);
-				logger::info("Serialized is hidden: {}", isHidden ? "true" : "false");
 				logger::info("Serialized passed time: {}", storedTime);
 			}
 		}
@@ -89,7 +82,6 @@ namespace Serialisation
 		bool deserialisedCompassVisibilityState;
 		float deserialisedCompassDamageValue;
 		bool deserialisedShouldDestroyCompass;
-		bool deserialisedIsHidden;
 		float deserialisedPassedTime;
 
 		if (!a_skse->ReadRecordData(deserialisedMapDamageCurr)) {
@@ -117,11 +109,6 @@ namespace Serialisation
 			return;
 		}
 
-		if (!a_skse->ReadRecordData(deserialisedIsHidden)) {
-			logger::error("Failed to load size");
-			return;
-		}
-
 		if (!a_skse->ReadRecordData(deserialisedPassedTime)) {
 			logger::error("Failed to load size");
 			return;
@@ -137,10 +124,9 @@ namespace Serialisation
 
 			logger::info("Deserialized current map damage: {}", deserialisedMapDamageCurr);
 			logger::info("Deserialized total map durability: {}", deserialisedMapTotalDur);
-			logger::info("Deserialized compass visibility state: {}", deserialisedCompassVisibilityState ? "true" : "false");
+			logger::info("Deserialized compass_visible: {}", deserialisedCompassVisibilityState ? "true" : "false");
 			logger::info("Deserialized compass damage: {}", deserialisedCompassDamageValue);
 			logger::info("Deserialized compass should destroy: {}", deserialisedShouldDestroyCompass ? "true" : "false");
-			logger::info("Deserialized is hidden: {}", deserialisedIsHidden ? "true" : "false");
 			logger::info("Deserialized passed time: {}", deserialisedPassedTime);
 		}
 	}
@@ -152,7 +138,6 @@ namespace Serialisation
 		Hooks::MainUpdate::compass_visible = true;
 		Hooks::MainUpdate::compass_damage_val = 0.0f;
 		Hooks::MainUpdate::destroy = false;
-		Hooks::MainUpdate::hidden = false;
 		Hooks::MainUpdate::passed_time = 0.0f;
 	}
 }

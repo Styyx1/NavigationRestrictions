@@ -8,8 +8,8 @@ void Listener(SKSE::MessagingInterface::Message* message) noexcept
 {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
         Hooks::Install();       
-        Settings::GetSingleton()->LoadSettings();
-        Settings::GetSingleton()->LoadForms();
+        Setting::Values::Update();
+        Setting::Forms::LoadForms();
         Hooks::ItemAdded::PopulateMap();
         Hooks::ItemAdded::UpdateMap();
         Hooks::MainUpdate::init = true;
