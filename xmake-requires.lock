@@ -3,61 +3,37 @@
         version = "1.0"
     },
     ["windows|x64"] = {
-        ["cmake#31fecfc4"] = {
+        ["cmake#f56260b5"] = {
             repo = {
                 branch = "master",
-                commit = "d885463d7cea3253b436ded2f4f17fd8423c4eaa",
-                url = "https://github.com/xmake-io/xmake-repo.git"
-            },
-            version = "3.31.1"
-        },
-        ["directxmath#31fecfc4"] = {
-            repo = {
-                branch = "master",
-                commit = "b2d6e85d23e92d8b8aade0f5cf926075912e7e37",
+                commit = "37f47a69ef56b3894924272469056cf425943951",
                 url = "https://gitlab.com/tboox/xmake-repo.git"
             },
-            version = "2024.02"
+            version = "3.31.6-msvc6"
         },
-        ["directxtk#31fecfc4"] = {
+        ["ninja#f56260b5"] = {
             repo = {
                 branch = "master",
-                commit = "b2d6e85d23e92d8b8aade0f5cf926075912e7e37",
+                commit = "37f47a69ef56b3894924272469056cf425943951",
                 url = "https://gitlab.com/tboox/xmake-repo.git"
             },
-            version = "24.2.0"
+            version = "1.12.1"
         },
-        ["rapidcsv#31fecfc4"] = {
+        ["spdlog#09c8c173"] = {
             repo = {
                 branch = "master",
-                commit = "e328ef3c5cf3dcd398a44029070266a0c4988ff2",
+                commit = "37f47a69ef56b3894924272469056cf425943951",
                 url = "https://gitlab.com/tboox/xmake-repo.git"
             },
-            version = "8.84"
+            version = "v1.16.0"
         },
-        ["simpleini#31fecfc4"] = {
+        ["toml11#f56260b5"] = {
             repo = {
                 branch = "master",
-                commit = "193aab3a94c28a30d8d509b1c21ee9ec1db458bf",
+                commit = "d557ccb28de6284dff4e7a174e1681f5b386c2d5",
                 url = "https://gitlab.com/tboox/xmake-repo.git"
             },
-            version = "v4.22"
-        },
-        ["spdlog#c9428c73"] = {
-            repo = {
-                branch = "master",
-                commit = "e328ef3c5cf3dcd398a44029070266a0c4988ff2",
-                url = "https://gitlab.com/tboox/xmake-repo.git"
-            },
-            version = "v1.14.1"
-        },
-        ["xbyak#31fecfc4"] = {
-            repo = {
-                branch = "master",
-                commit = "e328ef3c5cf3dcd398a44029070266a0c4988ff2",
-                url = "https://gitlab.com/tboox/xmake-repo.git"
-            },
-            version = "v7.06"
+            version = "v4.4.0"
         }
     }
 }

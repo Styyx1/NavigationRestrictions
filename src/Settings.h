@@ -1,106 +1,92 @@
 #pragma once
+#include "mod-data.h"
 
-namespace Setting {
-    namespace Values {
+namespace Config {
+    using namespace MOD;
+    struct Settings : REX::Singleton<Settings> {
 
-        static float stored_time{};
-        static bool skills_of_the_wild_active{};
-        static uint16_t map_durability_total{ 50 };
+        static inline REX::TOML::Bool toggle_damage_compass{ COMP_SEC, "bToggleCompassDamage", true };
+        static inline REX::TOML::Bool toggle_compass_check{ COMP_SEC, "bToggleCompassCheck", true };
+        static inline REX::TOML::Bool toggle_compass_notification{ COMP_SEC, "bToggleCompassNotification", true };
+        static inline REX::TOML::I32 compass_durability{ COMP_SEC, "iCompassDurability", 30 };
+        static inline REX::TOML::F32 compass_damage_tick_time{ COMP_SEC, "fCompassDamageTime", 30.0f };
+        static inline REX::TOML::Str compass_break_message{ COMP_SEC, "sCompassBreakNotification", std::string("Your compass can not guide you anymore...") };
 
-        static REX::INI::Bool debug_logging{ "DebugLogging", "bEnableDebugLog", false };
-        static REX::INI::Bool enable_compass_damage{ "Settings", "bEnableCompassDamage", true };
-        static REX::INI::Bool bypass_map_checks{ "Settings", "bBypassMapCheck", false };
-        static REX::INI::Bool bypass_compass_checks{ "Settings", "bBypassCompassCheck", false  };
-        static REX::INI::Bool show_compass_break{ "Settings", "bShowCompassNotif",true };
+        static inline REX::TOML::Bool toggle_damage_map{ MAP_SEC, "bToggleMapDamage", true };
+        static inline REX::TOML::Bool toggle_map_check{ MAP_SEC, "bToggleMapCheck", true };
+        static inline REX::TOML::I32 map_good_durabilty{ MAP_SEC, "iMapGoodDurability", 20 };
+        static inline REX::TOML::I32 map_damaged_durabilty{ MAP_SEC, "iMapDamagedDurability", 10 };
+        static inline REX::TOML::Str map_restrict_notification{ MAP_SEC, "sMapRestrictNotification", std::string("You need a map in your inventory") };
 
-        static REX::INI::I32 durability_map_normal{ "Settings", "iMapDurability", (i32)20 };
-        static REX::INI::I32 durability_map_damaged{ "Settings", "iDamagedMapDurability", (i32)10 };
-
-        static REX::INI::F32 compass_duration_days{ "Settings", "fCompassDurationDays", 3.0f };
-
-        static REX::INI::Str restriction_message{ "Texts", "sMessageText", (std::string)"You need a map to see your location!"};
-        static REX::INI::Str compass_break_message{ "Texts", "sCompassBreakMessage", (std::string)"Your compass can not guide you anymore..." };
         
-        static void Update()
-        {
-            logger::info("Loading settings...");
-            const auto ini = REX::INI::SettingStore::GetSingleton();
-            ini->Init("Data/MCM/Config/NavigationRestrictions/settings.ini", "Data/MCM/Settings/NavigationRestrictions.ini");
-            ini->Load();
 
-            if (debug_logging.GetValue()) {
-                spdlog::set_level(spdlog::level::debug);
-                logger::debug("Debug logging enabled");
-            }
-
-            logger::info("...Settings loaded");
+        void UpdateSettings(bool a_save) {
+            const auto toml = REX::TOML::SettingStore::GetSingleton();
+            toml->Init(TOML_DEF.data(), TOML_CUS.data());
+            if (!a_save)
+                toml->Load();
+            else
+                toml->Save();
         }
-    }
-    namespace Functions {
-
-        static const char* sotw_mod{ "SkillsOfTheWild.esp" };
-
-        static bool isSkillOfTheWildActive() 
-        {
-        
-            auto dh = RE::TESDataHandler::GetSingleton();
-
-            if (auto file = dh->LookupModByName(sotw_mod); file && file->compileIndex != 0xFF) {
-                logger::info("Skills of the wild is active");
-                Values::skills_of_the_wild_active = true;
-            }
-            return Values::skills_of_the_wild_active;
-        };
-    }
-
-    struct Forms {
-
-        inline static RE::TESObjectMISC* map;
-        inline static RE::TESObjectMISC* map_damaged;
-        inline static RE::TESObjectMISC* map_indestructible;
-        inline static RE::TESObjectMISC* map_destroyed;
-        inline static RE::TESObjectMISC* compass;
-        inline static RE::TESObjectMISC* compass_indestructible;
-        inline static RE::TESGlobal* skills_of_the_wild_perk;
-        inline static RE::TESGlobal* sotw_cheat_global;
-
-        static void PrintMap(RE::TESObjectMISC* item)
-        {
-            logger::debug("lookup successful, item name is {}", item->GetName());
-        }
-
-        static void LoadForms() noexcept
-        {
-            const char* plugin_name = "NavigationRestrictions.esp";
-            const int MapID = 0x800;
-            const int MapDamagedID = 0x801;
-            const int MapIndestructibleID = 0x803;
-            const int MapDestroyedID = 0x802;
-            const int CompassID = 0x804;
-            const int CompassIndestructibleID = 0x81C;
-            const int sotw_compass_global_cheat_id = 0x863;
-            const int sotw_compass_global_non_cheat_id = 0x958;
-
-            auto dataHandler = RE::TESDataHandler::GetSingleton();
-
-            map = dataHandler->LookupForm<RE::TESObjectMISC>(MapID, plugin_name);
-            PrintMap(map);
-            map_damaged = dataHandler->LookupForm<RE::TESObjectMISC>(MapDamagedID, plugin_name);
-            PrintMap(map_damaged);
-            map_indestructible = dataHandler->LookupForm<RE::TESObjectMISC>(MapIndestructibleID, plugin_name);
-            PrintMap(map_indestructible);
-            map_destroyed = dataHandler->LookupForm<RE::TESObjectMISC>(MapDestroyedID, plugin_name);
-            PrintMap(map_destroyed);
-            compass = dataHandler->LookupForm<RE::TESObjectMISC>(CompassID, plugin_name);
-            PrintMap(compass);
-            compass_indestructible = dataHandler->LookupForm<RE::TESObjectMISC>(CompassIndestructibleID, plugin_name);
-            PrintMap(compass_indestructible);
-
-            if (Functions::isSkillOfTheWildActive()) {
-                skills_of_the_wild_perk = dataHandler->LookupForm(sotw_compass_global_non_cheat_id, Functions::sotw_mod)->As<RE::TESGlobal>();
-                sotw_cheat_global = dataHandler->LookupForm(sotw_compass_global_cheat_id, Functions::sotw_mod)->As<RE::TESGlobal>();
-            }
-        };
     };
 
+    struct Forms : REX::Singleton<Forms> {
+
+        static inline RE::TESObjectMISC* map_new{};
+        static inline RE::TESObjectMISC* map_damaged{};
+        static inline RE::TESObjectMISC* map_indestructible{};
+        static inline RE::TESObjectMISC* map_destroyed{};
+        static inline RE::TESObjectMISC* compass_new{};
+        static inline RE::TESObjectMISC* compass_indestructible{};
+        static inline RE::TESGlobal* sotw_perk{};
+        static inline RE::TESGlobal* sotw_cheat{};
+
+        //set this on form lookup once and use it exclusively for sotw integration
+        //previous version of the mod had issues with an old version of sotw, this hopefully fixes it
+        static inline bool is_sotw_active{ false };
+
+        RE::TESObjectMISC* LoadMiscItem(RE::TESDataHandler* a_dataHandler, RE::FormID a_id, std::string_view a_modFile) {
+            auto* form = a_dataHandler->LookupForm<RE::TESObjectMISC>(a_id, a_modFile);
+            if (form)
+                REX::DEBUG("Loaded {}", form->GetName());
+            else
+                REX::ERROR("can not load {:8x}", a_id);
+            return form;
+        }
+        RE::TESGlobal* LoadGlobal(RE::TESDataHandler* a_dataHandler, RE::FormID a_id, std::string_view a_modFile) {
+            auto* form = a_dataHandler->LookupForm<RE::TESGlobal>(a_id, a_modFile);
+            if(form)
+                REX::DEBUG("Loaded {}", form->GetFormEditorID());
+            else
+                REX::ERROR("can not load {:8x}", a_id);
+            return form;
+        }
+
+        void LoadForms() {
+
+            const auto dh = RE::TESDataHandler::GetSingleton();
+
+            if (!MiscUtil::IsModLoaded(MOD_FILE)) {
+                REX::FAIL("Required plugin '{}' is missing.\n"
+                    "{} cannot function without it.", MOD_FILE, MOD_NAME);
+            }
+            map_new = LoadMiscItem(dh, MAP_GOOD_ID, MOD_FILE);
+            map_damaged = LoadMiscItem(dh, MAP_DAMAGED_ID, MOD_FILE);
+            map_indestructible = LoadMiscItem(dh, MAP_INDESTRUCTIBLE_ID, MOD_FILE);
+            map_destroyed = LoadMiscItem(dh, MAP_DESTROYED_ID, MOD_FILE);
+            compass_new = LoadMiscItem(dh, COMP_GOOD_ID, MOD_FILE);
+            compass_indestructible = LoadMiscItem(dh, COMP_INDESTRUCTIBLE_ID, MOD_FILE);
+
+            if (MiscUtil::IsModLoaded(SOTW_FILE)) {
+                sotw_cheat = LoadGlobal(dh, SOTW_COMP_CHEAT_GLOBAL_ID, SOTW_FILE);
+                sotw_perk = LoadGlobal(dh, SOTW_COMP_NON_CHEAT_GLOBAL_ID, SOTW_FILE);
+                if ( sotw_cheat && sotw_perk ) {
+                    is_sotw_active = true;
+                }                
+            }
+            else {
+                REX::INFO("{} not found, integration is not active", SOTW_FILE);
+            }
+        }
+    };
 }

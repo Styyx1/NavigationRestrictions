@@ -1,4 +1,6 @@
-[submodule "lib/commonlibsse-ng"]
-	path = lib/commonlibsse-ng
-	url = https://github.com/alandtse/CommonLibVR.git
-	branch = ng
+[submodule "extern/styyx-utils"]
+	path = extern/styyx-utils
+	url = https://github.com/Styyx1/StyyxUtils
+[submodule "lib/commonlibsse"]
+	path = lib/commonlibsse
+	url = https://github.com/libxse/commonlibsse.git

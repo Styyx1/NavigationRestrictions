@@ -7,34 +7,19 @@
 void Listener(SKSE::MessagingInterface::Message* message) noexcept
 {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
-        Hooks::Install();       
-        Setting::Values::Update();
-        Setting::Forms::LoadForms();
-        Hooks::ItemAdded::PopulateMap();
-        Hooks::ItemAdded::UpdateMap();
-        Hooks::MainUpdate::init = true;
+        Config::Forms::GetSingleton()->LoadForms();
     }
-    if (message->type == SKSE::MessagingInterface::kPostLoadGame) {
-        Hooks::MainUpdate::init = true;
-        Hooks::MainUpdate::shouldShowCompass(RE::PlayerCharacter::GetSingleton());
-    }
+
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface* skse)
 {
-    InitLogging();
+    Init(skse, {.trampoline = true});
+    Config::Settings::GetSingleton()->UpdateSettings(false);
 
-    const auto plugin{ SKSE::PluginDeclaration::GetSingleton() };
-    const auto name{ plugin->GetName() };
-    const auto version{ plugin->GetVersion() };
-
-    logger::info("{} {} is loading...", name, version);
-
-    Init(skse);
     if (const auto messaging{ SKSE::GetMessagingInterface() }; !messaging->RegisterListener(Listener)) {
         return false;
-    }
-    SKSE::GetPapyrusInterface()->Register(Papyrus::Bind);
+    }   
 
     if (auto serialization = SKSE::GetSerializationInterface()) {
         serialization->SetUniqueID(Serialisation::ID);
@@ -42,9 +27,5 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
         serialization->SetLoadCallback(&Serialisation::LoadCallback);
         serialization->SetRevertCallback(&Serialisation::RevertCallback);
     }
-
-    logger::info("{} has finished loading.", name);
-    logger::info("");
-
     return true;
 }

@@ -1,429 +1,393 @@
-#include "Hooks.h"
+#include "hooks.h"
 #include "Settings.h"
+namespace Hooks {
+	using set = Config::Settings;
+	using fitem = Config::Forms;
+#pragma region MapHook
 
-namespace Hooks
-{
-    void Install() noexcept
-    {
-        logger::info("{:*^30}", "HOOKS"sv);
-        MainUpdate::Install();
-        MapMenuEx::Install();
-        ItemAdded::InstallAddItemHook();
-        ItemAdded::InstallRemoveItemHook();
-        ItemAdded::InstallPickupHook();
-    }
 
-    void MapMenuEx::Install()
-    {
-        REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_MapMenu[0]);
-        func = vTable.write_vfunc(0x4, &OpenMap);
-        logger::info("installed map open hook");
-    }
+	RE::UI_MESSAGE_RESULTS MapMenuEx::MapOpen(RE::MapMenu* a_this, RE::UIMessage& a_message)
+	{
+		RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
 
-    RE::UI_MESSAGE_RESULTS MapMenuEx::OpenMap(RE::UIMessage& a_message)
-    {
-        if (a_message.type == RE::UI_MESSAGE_TYPE::kShow && !Setting::Values::bypass_map_checks.GetValue())
-        {
-            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            if (!shouldOpenMap(player)) {
-                logger::debug("restrict map hook");
-                showRestrictionMessage();
-                return RE::UI_MESSAGE_RESULTS::kIgnore;
-            }
-            else {
-                auto curr_map = GetCurrentMapItem(player);
-                if (curr_map; curr_map != Setting::Forms::map_indestructible || !hasIndestructibleMap(player)) {
-                    damage_map_item(1);
-                    logger::debug("damaged {} remaining durability is {}", curr_map->GetName(), total_durability_value_all_maps - current_map_damage);
-                }                
-            }
-        }
-        return func(this, a_message);
-    }
+		if (a_message.type == RE::UI_MESSAGE_TYPE::kShow && set::toggle_compass_check.GetValue()) {
+			if (!ShouldOpenMap(player)) {
+				REX::DEBUG("restrict map hook");
+				showRestrictionMessage();
+				return RE::UI_MESSAGE_RESULTS::kIgnore;
+			}
+			else {
+				RE::TESObjectMISC* curr_map = GetCurrentMapItem(player);
+				const auto& forms = Config::Forms::GetSingleton();
+				if (set::toggle_damage_map.GetValue()) {
+					if (curr_map != fitem::map_indestructible && !HasIndestructibleMap(player)) {
+						DurabilityTracker::GetSingleton()->DamageItem(curr_map, player, 1);
+					}
+				}
+			}
+		}
+		return _MapOpen(a_this, a_message);
+	}
 
-    bool MapMenuEx::hasAtLeastOneMapItem(RE::PlayerCharacter* player)
-    {
-        logger::debug("has at least one map item {}", player->GetItemCount(Setting::Forms::map) || player->GetItemCount(Setting::Forms::map_damaged) || hasIndestructibleMap(player) ? "true" : "false");
-        return player->GetItemCount(Setting::Forms::map) || player->GetItemCount(Setting::Forms::map_damaged) || hasIndestructibleMap(player);
-    }
+	bool MapMenuEx::hasAtLeastOneMapItem(RE::PlayerCharacter* player)
+	{
+		if (player->GetItemCount(fitem::map_new) > 0 ||
+			player->GetItemCount(fitem::map_damaged) > 0 ||
+			player->GetItemCount(fitem::map_indestructible) > 0) {
+			return true;
+		}
 
-    bool MapMenuEx::shouldOpenMap(RE::PlayerCharacter* player)
-    {
-        logger::debug("should open map is {}", hasAtLeastOneMapItem(player) || Setting::Values::bypass_map_checks.GetValue() ? "true" : "false");
-        return hasAtLeastOneMapItem(player) || Setting::Values::bypass_map_checks.GetValue();
-    }
+		const auto& inv = player->GetInventory();
+		for (const auto& [object, pair] : inv) {
+			if (object && object->HasKeywordByEditorID(MOD::kMapIndestructibleKeyword)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-    void MapMenuEx::damage_map_item(uint16_t a_damage_amount)
-    {
-        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-        auto map = GetCurrentMapItem(player);
-        logger::debug("current map damage value is {}", current_map_damage);
-        if (map && current_map_damage >= total_durability_value_all_maps || current_map_damage >= ItemAdded::map_durability_map.at(map)) {            
-            destroy_map_item(map, player);
-            current_map_damage = 0;
-            logger::debug("reset current map damage");
-            return;
-        }
-        current_map_damage = std::clamp(current_map_damage += a_damage_amount, (std::int16_t)0, total_durability_value_all_maps);
-        
-        return;        
-    }
+	bool MapMenuEx::ShouldOpenMap(RE::PlayerCharacter* player)
+	{
+		return hasAtLeastOneMapItem(player) || !set::toggle_map_check.GetValue();
+	}
 
-    void MapMenuEx::destroy_map_item(RE::TESObjectMISC* a_map_item, RE::PlayerCharacter* player)
-    {
-        player->RemoveItem(a_map_item, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
-        if (a_map_item == Setting::Forms::map) {
-            player->AddObjectToContainer(Setting::Forms::map_damaged, nullptr, 1, nullptr);
-            //total_durability_value_all_maps += ItemAdded::map_durability_map.at(Setting::Forms::map_damaged);
-            total_durability_value_all_maps = std::clamp(total_durability_value_all_maps -= ItemAdded::map_durability_map.at(a_map_item), (std::int16_t)0, ItemAdded::map_durability_map.at(a_map_item));
-            logger::debug("new durability is {}", total_durability_value_all_maps);
-            return;
-        }
-        if (a_map_item == Setting::Forms::map_damaged) {
-            player->AddObjectToContainer(Setting::Forms::map_destroyed, nullptr, 1, nullptr);
-            //total_durability_value_all_maps += ItemAdded::map_durability_map.at(Setting::Forms::map_destroyed);
-            total_durability_value_all_maps = std::clamp((total_durability_value_all_maps -= ItemAdded::map_durability_map.at(a_map_item)), (std::int16_t)0, ItemAdded::map_durability_map.at(a_map_item));
-            logger::debug("new durability is {}", total_durability_value_all_maps);
-            return;
-        }
-    }
+	bool MapMenuEx::HasIndestructibleMap(RE::PlayerCharacter* player)
+	{
+		if (player->GetItemCount(fitem::map_indestructible) > 0) {
+			return true;
+		}
+		const auto& inv = player->GetInventory();
+		for (const auto& [object, pair] : inv) {
+			if (object && object->HasKeywordByEditorID(MOD::kMapIndestructibleKeyword)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-    RE::TESObjectMISC* MapMenuEx::GetCurrentMapItem(RE::PlayerCharacter* player)
-    {
-        if (player->GetItemCount(Setting::Forms::map) > 0) {
-            return Setting::Forms::map;
-        }
-        if (player->GetItemCount(Setting::Forms::map_damaged) > 0) {
-            return Setting::Forms::map_damaged;
-        }
-        if (player->GetItemCount(Setting::Forms::map_indestructible) > 0) {
-            return Setting::Forms::map_indestructible;
-        }
-        return nullptr;
-    }
+	RE::TESObjectMISC* MapMenuEx::GetCurrentMapItem(RE::PlayerCharacter* player)
+	{
+		if (player->GetItemCount(fitem::map_new) > 0) {
+			return fitem::map_new;
+		}
+		if (player->GetItemCount(fitem::map_damaged) > 0) {
+			return fitem::map_damaged;
+		}
+		if (player->GetItemCount(fitem::map_indestructible) > 0) {
+			return fitem::map_indestructible;
+		}
+		return nullptr;
+	}
 
-    void MapMenuEx::showRestrictionMessage(){
-        RE::DebugNotification(Setting::Values::restriction_message.GetValue().c_str());
-        return;
-    }
+	void MapMenuEx::showRestrictionMessage()
+	{
+		std::string text = set::map_restrict_notification.GetValue();
+		RE::SendHUDMessage::ShowHUDMessage(text.c_str(), nullptr, true);
+	}
 
-    void ItemAdded::LowerDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map)
-    {
-        auto result = MapMenuEx::total_durability_value_all_maps;
-        MapMenuEx::total_durability_value_all_maps = std::clamp((result -= a_mapPairs.at(used_map)), (std::int16_t)0, MapMenuEx::total_durability_value_all_maps);
-    }
+#pragma endregion MapHook
+#pragma region DurabiltyTracker
 
-    bool MapMenuEx::hasIndestructibleMap(RE::PlayerCharacter* player)
-    {
-        bool result = false;
-        if (player->GetItemCount(Setting::Forms::map_indestructible) > 0) {
-            result = true;
-        }
-        auto inv = player->GetInventory();
-        for (auto& item : player->GetInventory()) {
-            if (item.first->HasKeywordByEditorID("MapIndestructible")) {
-                result = true;
-            }
-        }
-        return result;
-    }
+	void DurabilityTracker::AddItemToPool(RE::TESBoundObject* a_item, uint32_t a_durabilityAmount, uint32_t a_itemCount)
+	{
+		if (!a_item)
+			return;
+		durability_pool[a_item] += a_durabilityAmount * a_itemCount;
+		REX::DEBUG("added {} of {} to the durability map. total durability is now: {}", a_itemCount, a_item->GetName(), durability_pool[a_item]);
+	}
 
-    void ItemAdded::PopulateMap()
-    {
-        ItemAdded::map_durability_map.try_emplace(Setting::Forms::map, Setting::Values::durability_map_normal.GetValue());
-        ItemAdded::map_durability_map.try_emplace(Setting::Forms::map_damaged, Setting::Values::durability_map_damaged.GetValue());
-        ItemAdded::map_durability_map.try_emplace(Setting::Forms::map_destroyed, 0);
+	void DurabilityTracker::DamageItem(RE::TESBoundObject* a_item, RE::PlayerCharacter* a_player, uint32_t a_damageAmount)
+	{
+		if (!a_item)
+			return;
 
-        logger::debug("populated map, entries are: 1 with a value of {} \n 2 with a value of {} and \n 3 with a value of {}", map_durability_map.at(Setting::Forms::map), map_durability_map.at(Setting::Forms::map_damaged), map_durability_map.at(Setting::Forms::map_destroyed));
-    }
+		uint32_t item_dur = durability_amounts.contains(a_item) ? durability_amounts[a_item] : 0;
+		REX::DEBUG("item durability is {}", item_dur);
 
-    void ItemAdded::InstallAddItemHook()
-    {
-        REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
-        _AddObjectToContainer = PlayerCharacterVtbl.write_vfunc(0x5A, OnItemAdded);
-        logger::info("Installed OnItemAdded Hook");
-    }
+		if (durability_pool.contains(a_item)) {
+			durability_pool[a_item] -= a_damageAmount;
 
-    void ItemAdded::InstallRemoveItemHook()
-    {
-        REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
-        _RemoveItem = PlayerCharacterVtbl.write_vfunc(0x56, OnItemRemoved);
-        logger::info("Installed OnItemRemoved Hook");
-    }
+			if (durability_pool[a_item] <= 0) {
+				a_player->RemoveItem(a_item, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+				durability_pool.erase(a_item);
+				if (a_item == fitem::compass_new) {
+					CompassHook::GetSingleton()->UpdateCompassState();
+				}
+			}
+			else {
+				uint32_t itemCount = a_player->GetItemCount(a_item);
+				uint32_t max_possible_durability = itemCount * item_dur;
+				if (durability_pool[a_item] < (max_possible_durability - item_dur)) {
+					a_player->RemoveItem(a_item, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+					if (a_item == fitem::compass_new) {
+						CompassHook::GetSingleton()->UpdateCompassState();
+					}
+				}
+			}
+			REX::DEBUG("Damaged {} by {}, new durability: {}", a_item->GetName(), a_damageAmount, durability_pool[a_item]);
+		}
+	}
 
-    void ItemAdded::InstallPickupHook()
-    {
-        REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
-        _PickUpObject = PlayerCharacterVtbl.write_vfunc(0xCC, PickUpObject);
-        logger::info("Installed PickUpObject Hook");
-    }
+	void DurabilityTracker::RemoveItemFromPool(RE::TESBoundObject* a_item, uint32_t a_durabilityAmount, uint32_t a_itemCount)
+	{
+		if (!a_item)
+			return;
+		if (durability_pool.contains(a_item)) {
+			uint32_t removal_amount = a_durabilityAmount * a_itemCount;
+			if (removal_amount >= durability_pool[a_item]) {
+				durability_pool.erase(a_item);
+			}
+			else {
+				durability_pool[a_item] -= removal_amount;
+			}
+		}
+	}
 
-    void ItemAdded::UpdateMap()
-    {
-        ItemAdded::map_durability_map.insert_or_assign(Setting::Forms::map, Setting::Values::durability_map_normal.GetValue());
-        ItemAdded::map_durability_map.insert_or_assign(Setting::Forms::map_damaged, Setting::Values::durability_map_damaged.GetValue());
-    }
+	uint32_t DurabilityTracker::GetRemainingDurability(RE::TESBoundObject* a_item) const
+	{
+		return durability_pool.contains(a_item) ? durability_pool.at(a_item) : 0;
+	}
 
-    void ItemAdded::PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound)
-    {
-        {
-            _PickUpObject(a_this, a_object, a_count, a_arg3, a_playSound);
-            if (a_object->GetBaseObject() == Setting::Forms::map->As<RE::TESBoundObject>() || a_object->GetBaseObject() == Setting::Forms::map_damaged->As<RE::TESBoundObject>() || a_object->GetBaseObject() == Setting::Forms::map_destroyed->As<RE::TESBoundObject>()) {
-                if (a_count > 1) {
-                    for (int i = 0; i < a_count; i++) {
-                        AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
-                        logger::debug("{}.) added durability", i);
-                    }
-                }
-                else {
-                    AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->GetBaseObject()->As<RE::TESObjectMISC>());
-                    logger::debug("added durability");
-                }
-                
-            }
-            if (a_object->GetBaseObject() == Setting::Forms::compass->As<RE::TESBoundObject>() || a_object->GetBaseObject()->HasKeywordByEditorID("CompassIndestructible")) {
-                MainUpdate::show_compass_now = true;
-            }
-            logger::debug("item {} picked up", a_object->GetName());
+	bool DurabilityTracker::IsItemBroken(RE::TESBoundObject* a_item) const
+	{
+		return durability_pool.contains(a_item) ? durability_pool.at(a_item) <= 0 : true;
+	}
 
-        }
-    }
+	void DurabilityTracker::PopulateMapFromInventory(RE::PlayerCharacter* player)
+	{
+		const auto& inv = player->GetInventory();
+		for (auto& item : inv) {
+			if (tracked_items.contains(item.first)) {
+				if (!durability_pool.contains(item.first)) {
+					AddItemToPool(item.first, durability_amounts[item.first], (uint32_t)item.second.first);
+				}
+			}
+		}
+	}
 
-    void ItemAdded::OnItemAdded(RE::Actor* a_this, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count, RE::TESObjectREFR* a_fromRefr)
-    {
-        _AddObjectToContainer(a_this, a_object, a_extraList, a_count, a_fromRefr);
-        if (a_object == Setting::Forms::map->As<RE::TESBoundObject>() || a_object == Setting::Forms::map_damaged->As<RE::TESBoundObject>() || a_object == Setting::Forms::map_destroyed->As<RE::TESBoundObject>()) {
-            if (a_count > 1) {
-                for (int i = 0; i < a_count; i++) {
-                    AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
-                    logger::debug("{}.) added durability", i);
-                }
-            }
-            else {
-                AddDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_object->As<RE::TESObjectMISC>());
-                logger::debug("added durability");
-            }
-        }
-        if (a_object == Setting::Forms::compass || a_object->HasKeywordByEditorID("CompassIndestructible")) {
-            MainUpdate::show_compass_now = true;
-        }
-        logger::debug("item {} added", a_object->GetName());
-        
-    }
+	void DurabilityTracker::GenerateDurabilityAmounts()
+	{
+		durability_amounts = {
+			{fitem::map_new, set::map_good_durabilty},
+			{fitem::map_damaged, set::map_damaged_durabilty},
+			{fitem::compass_new, set::compass_durability}
+		};
+		tracked_items = {
+			fitem::map_new, fitem::map_damaged, fitem::compass_new
+		};
+	}
 
-    RE::ObjectRefHandle ItemAdded::OnItemRemoved(RE::Actor* a_this, RE::TESBoundObject* a_item, std::int32_t a_count, RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extraList, RE::TESObjectREFR* a_moveToRef, const RE::NiPoint3* a_dropLoc, const RE::NiPoint3* a_rotate)
-    {
-        
-        if (a_item == Setting::Forms::map || a_item == Setting::Forms::map_damaged || a_item == Setting::Forms::map_destroyed) {
-            if (a_count > 1) {
-                for (int i = 0; i < a_count; i++) {
-                    LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
-                    logger::debug("lowered durability");
-                }
-            }
-            else {
-                LowerDurability(map_durability_map, MapMenuEx::total_durability_value_all_maps, a_item->As<RE::TESObjectMISC>());
-                logger::debug("lowered durability");
-            }
-        }
-        auto handle = _RemoveItem(a_this, a_item, a_count, a_reason, a_extraList, a_moveToRef, a_dropLoc, a_rotate);
-        auto player = RE::PlayerCharacter::GetSingleton();
-        logger::debug("before compass item check");
-        if (a_item == Setting::Forms::compass || a_item->HasKeywordByEditorID("CompassIndestructible")) {  
-            logger::info("is compass item");
-            if (player->GetItemCount(Setting::Forms::compass) <= 1) {
-                logger::debug("removed {}, player has {} left", a_item->GetName(), player->GetItemCount(Setting::Forms::compass));
-                MainUpdate::show_compass_now = false;
-            }
-            if (!MainUpdate::shouldShowCompass(player)) {
-                MainUpdate::show_compass_now = false;
-            }
-        }
-        logger::debug("item {} removed", a_item->GetName());
-        
-        
-        return handle;
-    }
+#pragma endregion DurabilityTracker
+#pragma region ItemManip
+	void ItemManip::InstallAddItemHook()
+	{
+		REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
+		_AddObjectToContainer = PlayerCharacterVtbl.write_vfunc(0x5A, OnItemAdded);
+		REX::INFO("Installed OnItemAdded Hook");
+	}
 
-    void ItemAdded::AddDurability(std::unordered_map<RE::TESObjectMISC*, std::int16_t> a_mapPairs, std::int16_t a_total_durability, RE::TESObjectMISC* used_map)
-    {
-        MapMenuEx::total_durability_value_all_maps += a_mapPairs.at(used_map);
-        logger::debug("new durability after add dur function is {}", MapMenuEx::total_durability_value_all_maps);
-    }
+	void ItemManip::InstallPickupHook()
+	{
+		REL::Relocation<std::uintptr_t> PlayerCharacterVtbl{ RE::VTABLE_PlayerCharacter[0] };
+		_PickUpObject = PlayerCharacterVtbl.write_vfunc(0xCC, PickUpObject);
+		REX::INFO("Installed PickUpObject Hook");
+	}
 
-    void MainUpdate::PlayerUpdate(RE::PlayerCharacter* p, float a_delta)
-    {
-        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-        RE::Calendar* cal = RE::Calendar::GetSingleton();
+	void ItemManip::InstallDropObjectHook()
+	{
+		REL::Relocation<std::uintptr_t> PlayerVtbl{ RE::VTABLE_PlayerCharacter[0] };
+		_DropObject = PlayerVtbl.write_vfunc(0x0CB, DropObject);
+		REX::INFO("Installed DropObject Hook");
+	}
 
-        if (!RE::UI::GetSingleton()->IsMenuOpen(RE::MainMenu::MENU_NAME))
-        {
-            if (Setting::Values::bypass_compass_checks.GetValue()) {
-                if (!compass_visible) {
-                    ShowCompass();
-                    compass_visible = true;
-                    logger::debug("bypassed compass check");                    
-                }
-                return func(p, a_delta);                
-            }
+	void ItemManip::PickUpObject(RE::Actor* a_this, RE::TESObjectREFR* a_object, uint32_t a_count, bool a_arg3, bool a_playSound)
+	{
+		_PickUpObject(a_this, a_object, a_count, a_arg3, a_playSound);
+		const auto& tracker = DurabilityTracker::GetSingleton();
+		if (tracker->tracked_items.contains(a_object->GetBaseObject())) {
+			REX::INFO("picked up {} of {}", a_count, a_object->GetBaseObject()->GetName());
+			tracker->AddItemToPool(a_object->GetBaseObject(), tracker->durability_amounts[a_object->GetBaseObject()], a_count);
+			CompassHook::GetSingleton()->UpdateCompassState();
+		}
+	}
 
-            CompVisUpdate();
-            
-            if (canDestroyCompass() && compass_visible && destroy) {
-                PrintCompass();
-                destroy = false;
-            }
+	void ItemManip::OnItemAdded(RE::Actor* a_this, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count, RE::TESObjectREFR* a_fromRefr)
+	{
+		_AddObjectToContainer(a_this, a_object, a_extraList, a_count, a_fromRefr);
+		const auto& tracker = DurabilityTracker::GetSingleton();
+		if (tracker->tracked_items.contains(a_object)) {
+			REX::INFO("added {} of {}", a_count, a_object->GetName());
+			tracker->AddItemToPool(a_object, tracker->durability_amounts[a_object], a_count);
+			CompassHook::GetSingleton()->UpdateCompassState();
+		}
+	}
 
-            if (Setting::Values::compass_duration_days.GetValue() > 0.0 && compass_visible && Setting::Values::enable_compass_damage.GetValue()) {
-                if (cal->GetHoursPassed() >= (passed_time + 1.0)) {
-                    if (damageCompass(std::roundf(cal->GetHoursPassed() - passed_time))) {
-                        destroy = true;
-                    }
-                    else {
-                        passed_time = cal->GetHoursPassed();
-                        destroy = false;
-                        logger::debug("stored new time, it is {}", passed_time);
-                    }
-                }
-            }
+	RE::ObjectRefHandle ItemManip::DropObject(RE::PlayerCharacter* player, const RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, std::int32_t a_count, const RE::NiPoint3* a_dropLoc, const RE::NiPoint3* a_rotate)
+	{
+		auto handle = _DropObject(player, a_object, a_extraList, a_count, a_dropLoc, a_rotate);
+		if (a_object) {
+			const auto& tracker = DurabilityTracker::GetSingleton();
+			auto obj = const_cast<RE::TESBoundObject*>(a_object);
+			if (tracker->tracked_items.contains(obj)) {
+				REX::INFO("removed {} of {}", a_count, a_object->GetName());
+				tracker->RemoveItemFromPool(obj, tracker->durability_amounts[obj], a_count);
+				CompassHook::GetSingleton()->UpdateCompassState();
+			}
+		}
+		return handle;
+	}
+#pragma endregion ItemManip
+#pragma region CompassHook
+	void CompassHook::InstallCompassHook()
+	{
+		REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_Compass[0]);
+		_UpdateComp = vTable.write_vfunc(0x1, &Update);
+		REX::INFO("Compass Update installed");
+	}
 
-            if (init) {                
-                if(!show_compass_now) {
-                    HideCompass();
-                    init = false;
-                    logger::debug("hide compass on init");
-                }
-                else if (show_compass_now) {
-                    ShowCompass();
-                    init = false;
-                    logger::debug("hide compass on init");
-                }
-            }
-            return func(p, a_delta);
-        }
-        return func(p, a_delta);
-    }
+	bool CompassHook::GetCompassState() const
+	{
+		return state_show_compass;
+	}
 
-    void MainUpdate::Install()
-    {
-        REL::Relocation<std::uintptr_t> PlayerVTBL{ RE::VTABLE_PlayerCharacter[0] };
-        func = PlayerVTBL.write_vfunc(0xAD, PlayerUpdate);
-        logger::info("hook:Player Update");
-    }
+	void CompassHook::SetCompassState(bool b_show)
+	{
+		state_show_compass = b_show;
+	}
 
-    bool MainUpdate::useSkillsOfTheWild()
-    {
-        bool sotw_show_comp = true;
-        if (Setting::Values::skills_of_the_wild_active) {
-            if (Setting::Forms::skills_of_the_wild_perk != nullptr && Setting::Forms::skills_of_the_wild_perk->FORMTYPE == RE::FormType::Global) {
-                if (Setting::Forms::skills_of_the_wild_perk->value != 0.0f || Setting::Forms::sotw_cheat_global->value != 0.0f) {
-                    sotw_show_comp = true;
-                }
-                else {
-                    sotw_show_comp = false;
-                }
-            }
-            
-        }
-        return sotw_show_comp;
-    }
+	void CompassHook::UpdateCompassState()
+	{
+		state_show_compass = ShouldShowCompass();
+		bool shouldShow = ShouldShowCompass();
+		SetCompassState(shouldShow);
+	}
 
-    void MainUpdate::CompVisUpdate()
-    {
-        if (show_compass_now != compass_visible) {
-            if (show_compass_now) {
-                ShowCompass();
-            } else {
-                HideCompass();
-            }
-            compass_visible = show_compass_now;
-        }
-    }
+	void CompassHook::ForceShowCompass()
+	{
+		SetCompassState(true);
+	}
 
-    void MainUpdate::PrintCompass() {
-        if (Setting::Values::show_compass_break.GetValue()) {
-            RE::DebugNotification(Setting::Values::compass_break_message.GetValue().c_str());
-        }        
-        return;
-    }
+	void CompassHook::Update(RE::HUDObject* a_this)
+	{
+		TimerUtil::Timer timer;
+		if (a_this) {
+			auto MovieView = a_this->view.get();
+			if (MovieView) {
+				RE::GFxValue compassHolder;
+				a_this->root.GetMember("CompassShoutMeterHolder", &compassHolder);
+				if (compassHolder.IsDisplayObject()) {
+					RE::GFxValue actual_compass;
+					compassHolder.GetMember("Compass", &actual_compass);
+					RE::GFxValue::DisplayInfo displayInfo;
+					actual_compass.GetDisplayInfo(std::addressof(displayInfo));
+					if (!CompassHook::GetSingleton()->GetCompassState()) {
+						displayInfo.SetAlpha(0.0f);
+						actual_compass.SetDisplayInfo(displayInfo);
+					}
+					else {
+						displayInfo.SetAlpha(100.0f);
+						actual_compass.SetDisplayInfo(displayInfo);
+						CompassHook::GetSingleton()->DoDamageCompass();
+					}
+				}
+			}
+			return _UpdateComp(a_this);
+		}
+	}
 
-    bool MainUpdate::ShowCompass()
-    {
-        return ShowHUDElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
-    }
+	bool CompassHook::HasCompassItem() const
+	{
 
-    bool MainUpdate::HideCompass()
-    {
-        return HideHudElement("_root.HUDMovieBaseInstance.CompassShoutMeterHolder._alpha");
-    }
+		RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+		if (player->GetItemCount(fitem::compass_new) > 0 || player->GetItemCount(fitem::compass_indestructible) > 0) {
+			REX::INFO("has either compass or indestructible compass");
+			return true;
+		}
 
-    bool MainUpdate::HideHudElement(const char* a_pathToVar) {
-        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
-            uiMovie->SetVariable(a_pathToVar, 0.0);
-            compass_visible = uiMovie->GetVariableDouble(a_pathToVar);
-            logger::debug("compass visible in hide hud element is {}", compass_visible ? "true" : "false");
-        }
-        return compass_visible;
-    }
+		const auto& inv = player->GetInventory();
+		for (const auto& [object, pair] : inv) {
+			if (object && object->HasKeywordByEditorID(MOD::kCompassIndestructibleKeyword)) {
+				REX::INFO("has item with compass keyword, it is: {}", object->GetName());
+				return true;
+			}
+		}
+		return false;
+	}
 
-    bool MainUpdate::ShowHUDElement(const char* a_pathToVar)
-    {
-        if (auto uiMovie = RE::UI::GetSingleton()->GetMovieView(RE::HUDMenu::MENU_NAME)) {
-            uiMovie->SetVariable(a_pathToVar, 100.0);
-            compass_visible = uiMovie->GetVariableDouble(a_pathToVar);  
-            logger::debug("compass visible in show hud element is {}", compass_visible ? "true" : "false");
-        }
-        return compass_visible;
-    }
+	bool CompassHook::ShouldShowCompass() const
+	{
+		REX::INFO("should show compass called");
+		bool should_show = HasCompassItem() || !set::toggle_compass_check.GetValue();
+		if (fitem::is_sotw_active) {
+			if (fitem::sotw_perk->value == 0 || fitem::sotw_cheat->value == 0) {
+				should_show = false;
+			}
+		}
+		CompassHook::GetSingleton()->SetCompassState(should_show);
+		return should_show;
+	}
 
-    bool MainUpdate::canDestroyCompass()
-    {
-        return destroy && Setting::Values::enable_compass_damage.GetValue();
-    }
+	bool CompassHook::HasIndestructibleCompass(RE::PlayerCharacter* a_player) const
+	{
+		if (a_player->GetItemCount(fitem::compass_indestructible) > 0) {
+			return true;
+		}
 
-    bool MainUpdate::damageCompass(std::int16_t a_amount)
-    {
-        compass_damage_val += a_amount;
-        logger::debug("new damage value is {}", compass_damage_val);
-        if (compass_damage_val >= (Setting::Values::compass_duration_days.GetValue() * 24.0)) {
-            compass_damage_val = 0.0;
-            RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-            if (player->GetItemCount(Setting::Forms::compass) > 0) {
-                player->RemoveItem(Setting::Forms::compass, 1, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr, nullptr);
-                if (!shouldShowCompass(player)) {
-                    show_compass_now = false;
-                }
-            }            
-            return true;
-        }
-        return false;
-    }
+		const auto& inv = a_player->GetInventory();
+		for (const auto& [object, pair] : inv) {
+			if (object && object->HasKeywordByEditorID(MOD::kCompassIndestructibleKeyword)) {
+				return true;
+			}
+		}
 
-    bool MainUpdate::HasCompassItem(RE::PlayerCharacter* player)
-    {
-        return player->GetItemCount(Setting::Forms::compass);
-    }
+		return false;
+	}
 
-    bool MainUpdate::shouldShowCompass(RE::PlayerCharacter* player)
-    {
-        logger::debug("start shouldShowCompass");
-        show_compass_now = false;
-        if (HasCompassItem(player)) {
-            if (useSkillsOfTheWild()) {
-                show_compass_now = true;
-            }   
-        }
-        if (Setting::Values::bypass_compass_checks.GetValue()) {
-            show_compass_now = true;
-        }
-        for (auto& item : player->GetInventory()) {
-            if (item.first->HasKeywordByEditorID("CompassIndestructible")) {
-                if (useSkillsOfTheWild()) {
-                    show_compass_now = true;
-                }                
-            }
-        }
-        logger::debug("end shouldShowCompass, result is {}", show_compass_now ? "true" : "false");
-        return show_compass_now;
-    }
-} // namespace Hooks
+	RE::TESObjectMISC* CompassHook::GetCompassFromInventory(RE::PlayerCharacter* a_player) const
+	{
+		if (a_player->GetItemCount(fitem::compass_new) > 0) {
+			return fitem::compass_new;
+		}
+		if (a_player->GetItemCount(fitem::compass_indestructible) > 0) {
+			return fitem::compass_indestructible;
+		}
+		return nullptr;
+	}
+
+	void CompassHook::ShowCompassBreakMessage()
+	{
+		if (set::toggle_compass_notification.GetValue()) {
+			std::string text = set::compass_break_message.GetValue();
+			RE::SendHUDMessage::ShowHUDMessage(text.c_str(), nullptr, true);
+		}
+	}
+
+	void CompassHook::DoDamageCompass()
+	{
+
+		RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
+
+		if (!set::toggle_damage_compass.GetValue()) {
+			compass_timer.Stop();
+			return;
+		}
+
+		if (set::toggle_compass_check.GetValue()) {
+			if(!compass_timer.IsRunning())
+				compass_timer.Start();
+		}
+
+		if (!GetCompassState()) {
+			compass_timer.Stop();
+		}
+
+		if (compass_timer.ElapsedSeconds() >= set::compass_damage_tick_time.GetValue()) {
+
+			DurabilityTracker::GetSingleton()->DamageItem(fitem::compass_new, player, 1);
+			compass_timer.Reset();
+		}
+	}
+
+#pragma endregion CompassHook
+
+}
